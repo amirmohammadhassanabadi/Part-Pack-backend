@@ -1,0 +1,12 @@
+{
+  "name": "part-pack",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "hasanabadi.am1380@gmail.com",
+  "license": "ISC",
+  "description": "Part-Pack App"
+}
