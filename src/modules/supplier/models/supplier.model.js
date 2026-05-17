@@ -6,61 +6,72 @@ const supplierSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      index: true
+      index: true,
+    },
+
+    code: {
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
+      trim: true,
     },
 
     address: {
       type: String,
-      trim: true
+      trim: true,
     },
 
     phoneBale: {
       type: String,
       required: true,
-      index: true
+      index: true,
     },
 
     phoneLandline: {
-      type: String
+      type: String,
     },
 
     isActive: {
       type: Boolean,
       default: true,
-      index: true
+      index: true,
     },
 
     partTypes: [
       {
         type: String,
-        enum: ["engine", "body", "electric", "consumable", "suspension", "other"],
-        index: true
-      }
+        enum: [
+          "engine",
+          "body",
+          "electric",
+          "consumable",
+          "suspension",
+          "other",
+        ],
+        index: true,
+      },
     ],
 
     brands: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Brand",
-        index: true
-      }
+        index: true,
+      },
     ],
 
     carModels: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "CarModel",
-        index: true
-      }
+        index: true,
+      },
     ],
-
-    notes: {
-      type: String
-    }
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
 // برای پیدا کردن سریع تامین‌کننده مناسب

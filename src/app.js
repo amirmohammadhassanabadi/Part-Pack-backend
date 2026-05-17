@@ -3,6 +3,7 @@ const cors = require('cors')
 
 // Modules Importing
 const { vehicleRouter } = require("./modules/vehicles");
+const supplierRouter = require("./modules/suppliers");
 
 // App
 const app = express()
@@ -19,5 +20,6 @@ app.get('/', (req, res) => {
 
 // Routers
 app.use("/api/v1/vehicles", vehicleRouter);
+app.use("/api/v1/suppliers", supplierRouter);
 
 module.exports = app
