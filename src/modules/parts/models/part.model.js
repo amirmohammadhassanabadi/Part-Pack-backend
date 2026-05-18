@@ -21,6 +21,14 @@ const partSchema = new mongoose.Schema(
       required: true,
     },
 
+    suppliers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Supplier",
+        index: true,
+      },
+    ],
+
     partNumber: {
       type: String,
       required: true,
