@@ -10,7 +10,10 @@ class OrderService {
     let itemsTotal = 0;
 
     for (const item of items) {
-      if (item.finalUnitPrice && item.quantity) {
+      if (
+        typeof item.finalUnitPrice === "number" &&
+        typeof item.quantity === "number"
+      ) {
         itemsTotal += item.finalUnitPrice * item.quantity;
       }
     }
@@ -19,6 +22,16 @@ class OrderService {
       itemsTotal,
       grandTotal: itemsTotal,
     };
+  }
+
+  async recalculateTotals(orderId) {
+    const order = await orderRepository.findById(orderId);
+    if (!order) throw new Error("Order not found");
+
+    const totals = this.calculateTotals(order.items);
+    order.totals = totals;
+
+    return await order.save();
   }
 
   async createOrder(payload) {
@@ -46,10 +59,14 @@ class OrderService {
   }
 
   async updateOrder(id, data) {
+    const updated = await orderRepository.updateById(id, data);
+
+    // اگر قیمت آیتم‌ها تغییر کرده بود، totals را دوباره محاسبه کن
     if (data.items) {
-      data.totals = this.calculateTotals(data.items);
+      return await this.recalculateTotals(id);
     }
-    return await orderRepository.updateById(id, data);
+
+    return updated;
   }
 
   async deleteOrder(id) {
