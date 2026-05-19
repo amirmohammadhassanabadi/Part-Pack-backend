@@ -17,7 +17,7 @@ const orderSchema = new mongoose.Schema(
 
     customerSnapshot: {
       name: String,
-      phone: String,
+      phone: { Type: String, required: true },
     },
 
     items: [
@@ -27,21 +27,18 @@ const orderSchema = new mongoose.Schema(
           ref: "Part",
           required: true,
         },
-
-        partNumber: {
-          type: String,
-          required: true,
-        },
-
-        name: {
-          type: String,
-          required: true,
-        },
-
         quantity: {
           type: Number,
           required: true,
           min: 1,
+        },
+        // قیمت فروش نهایی که بعد از RFQ مشخص می‌شود
+        finalUnitPrice: {
+          type: Number,
+        },
+        selectedSupplier: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Supplier",
         },
       },
     ],
@@ -49,15 +46,25 @@ const orderSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
-        "pending",
-        "rfq_sent",
-        "quoted",
-        "confirmed",
-        "completed",
-        "cancelled",
+        "CART", // هنوز سبد خرید است
+        "PENDING_RFQ", // ثبت شده، منتظر استعلام از تامین‌کننده‌ها
+        "WAITING_FOR_OFFERS", // RFQ ارسال شده، منتظر پیشنهاد
+        "READY_FOR_DECISION", // همه پیشنهادها آمده، اپراتور باید انتخاب کند
+        "WAITING_FOR_PAYMENT", // فاکتور صادر شده، منتظر پرداخت مشتری
+        "PAID", // پرداخت شده
+        "CANCELLED",
       ],
-      default: "pending",
+      default: "CART",
       index: true,
+    },
+
+    // مجموع مبالغ برای راحتی
+    totals: {
+      itemsTotal: { type: Number, default: 0 },
+      // اگر بعداً بخواهی:
+      // discount: { ... },
+      // shipping: { ... },
+      grandTotal: { type: Number, default: 0 },
     },
 
     notes: {

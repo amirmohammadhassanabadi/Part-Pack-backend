@@ -5,6 +5,7 @@ const cors = require("cors");
 const { vehicleRouter } = require("./modules/vehicles");
 const supplierRouter = require("./modules/suppliers");
 const partRouter = require("./modules/parts");
+const { orderRouter } = require("./modules/orders");
 
 // App
 const app = express();
@@ -22,5 +23,6 @@ app.get("/", (req, res) => {
 app.use("/api/v1/vehicles", vehicleRouter);
 app.use("/api/v1/suppliers", supplierRouter);
 app.use("/api/v1/parts", partRouter);
+app.use("/api/v1/orders", orderRouter);
 
 module.exports = app;
