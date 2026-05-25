@@ -22,14 +22,18 @@ const supplierSchema = new mongoose.Schema(
       trim: true,
     },
 
-    phoneBale: {
-      type: String,
-      required: true,
-      index: true,
-    },
-
-    phoneLandline: {
-      type: String,
+    phoneNumbers: {
+      bale: {
+        type: String,
+        index: true,
+      },
+      telegram: {
+        type: String,
+        index: true,
+      },
+      landLine: {
+        type: String,
+      },
     },
 
     isActive: {

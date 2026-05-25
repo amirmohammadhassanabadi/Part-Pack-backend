@@ -3,7 +3,23 @@ const supplierService = require("../services/supplier.service");
 class SupplierController {
   async createSupplier(req, res, next) {
     try {
-      const supplier = await supplierService.createSupplier(req.body);
+      const { name, address, phoneNumbers, partTypes, brands, carModels } =
+        req.body;
+
+      const supplierDto = {
+        name: name?.trim(),
+        address: address?.trim(),
+        phoneNumbers: {
+          bale: phoneNumbers?.bale?.trim(),
+          telegram: phoneNumbers?.telegram?.trim(),
+          landLine: phoneNumbers?.landLine?.trim(),
+        },
+        partTypes: partTypes || [],
+        brands: brands || [],
+        carModels: carModels || [],
+      };
+
+      const supplier = await supplierService.createSupplier(supplierDto);
 
       res.status(201).json({
         success: true,
