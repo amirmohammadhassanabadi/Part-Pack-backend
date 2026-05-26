@@ -5,10 +5,10 @@ const cors = require("cors");
 const errorHandler = require('./core/middlewares/errorHandler');
 
 // Modules Importing
-const { vehicleRouter } = require("./modules/vehicles");
+// const { vehicleRouter } = require("./modules/vehicles");
 const supplierRouter = require("./modules/suppliers");
-const partRouter = require("./modules/parts");
-const { orderRouter } = require("./modules/orders");
+// const partRouter = require("./modules/parts");
+// const { orderRouter } = require("./modules/orders");
 
 // App
 const app = express();
