@@ -22,11 +22,16 @@ app.get("/", (req, res) => {
   res.send("API is running");
 });
 
+// Health Check
+app.get("/healthz", (req, res) => {
+  res.status(200).send("ok");
+})
+
 // Routers
-app.use("/api/v1/vehicles", vehicleRouter);
+// app.use("/api/v1/vehicles", vehicleRouter);
 app.use("/api/v1/suppliers", supplierRouter);
-app.use("/api/v1/parts", partRouter);
-app.use("/api/v1/orders", orderRouter);
+// app.use("/api/v1/parts", partRouter);
+// app.use("/api/v1/orders", orderRouter);
 
 // خطای ۴۰۴ برای روت‌هایی که پیدا نمی‌شن
 app.all('*', (req, res, next) => {
