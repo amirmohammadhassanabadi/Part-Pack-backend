@@ -33,11 +33,6 @@ app.use("/api/v1/suppliers", supplierRouter);
 // app.use("/api/v1/parts", partRouter);
 // app.use("/api/v1/orders", orderRouter);
 
-// خطای ۴۰۴ برای روت‌هایی که پیدا نمی‌شن
-app.all('*', (req, res, next) => {
-  next(new AppError(`آدرس ${req.originalUrl} پیدا نشد!`, 404));
-});
-
 // فعال‌سازی مدیریت خطای مرکزی
 app.use(errorHandler);
 
