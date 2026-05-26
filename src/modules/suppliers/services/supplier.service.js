@@ -47,7 +47,7 @@ class SupplierService {
     const finalData = {
       ...supplierDto,
       code,
-      isActive: false, // به صورت پیش‌فرض غیرفعال تا توسط ادمین تایید شود
+      isActive: true, 
     };
 
     // ۵. ذخیره نهایی در دیتابیس

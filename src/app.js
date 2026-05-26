@@ -16,6 +16,7 @@ const app = express();
 app.use(express.json()); // برای پارس کردن Body درخواست‌ها
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // routes
 app.get("/", (req, res) => {

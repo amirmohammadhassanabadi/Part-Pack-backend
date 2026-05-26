@@ -53,7 +53,6 @@ const supplierSchema = new mongoose.Schema(
           "suspension",
           "other",
         ],
-        index: true,
       },
     ],
 

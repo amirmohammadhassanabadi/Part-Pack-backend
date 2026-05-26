@@ -3,6 +3,10 @@ const supplierService = require("../services/supplier.service");
 class SupplierController {
   async createSupplier(req, res, next) {
     try {
+      console.log(req.body);
+      if (!req.body) {
+        return next(new AppError("بدنه درخواست (body) یافت نشد.", 400));
+      }
       const { name, address, phoneNumbers, partTypes, brands, carModels } =
         req.body;
 
@@ -23,7 +27,7 @@ class SupplierController {
 
       res.status(201).json({
         success: true,
-        data: supplier,
+        message: "ok"
       });
     } catch (error) {
       next(error);
