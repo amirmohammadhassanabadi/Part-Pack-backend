@@ -23,7 +23,8 @@ class SupplierService {
 
   async createSupplier(supplierDto) {
     const { name, phoneNumbers } = supplierDto;
-
+    console.log("step-2");
+    
     // ۱. بررسی تکراری بودن نام (Name Check)
     const existingName = await supplierRepository.findOne({ name });
     if (existingName) {

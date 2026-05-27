@@ -3,6 +3,8 @@ const supplierService = require("../services/supplier.service");
 class SupplierController {
   async createSupplier(req, res, next) {
     try {
+      console.log("step-3");
+      
       console.log(req.body);
       if (!req.body) {
         return next(new AppError("بدنه درخواست (body) یافت نشد.", 400));
