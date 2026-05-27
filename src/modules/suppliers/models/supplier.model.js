@@ -6,14 +6,11 @@ const supplierSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      index: true,
     },
 
     code: {
       type: String,
       required: true,
-      unique: true,
-      uppercase: true,
       trim: true,
     },
 
@@ -25,11 +22,9 @@ const supplierSchema = new mongoose.Schema(
     phoneNumbers: {
       bale: {
         type: String,
-        index: true,
       },
       telegram: {
         type: String,
-        index: true,
       },
       landLine: {
         type: String,
@@ -39,7 +34,6 @@ const supplierSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
-      index: true,
     },
 
     partTypes: [
@@ -60,7 +54,6 @@ const supplierSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Brand",
-        index: true,
       },
     ],
 
@@ -68,7 +61,6 @@ const supplierSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "CarModel",
-        index: true,
       },
     ],
   },
@@ -76,8 +68,5 @@ const supplierSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
-
-// برای پیدا کردن سریع تامین‌کننده مناسب
-supplierSchema.index({ partTypes: 1, brands: 1, carModels: 1 });
 
 module.exports = mongoose.model("Supplier", supplierSchema);
