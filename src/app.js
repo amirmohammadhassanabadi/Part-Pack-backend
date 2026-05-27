@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const morgan = require("morgan");
 
 // Middlewares
 const errorHandler = require('./core/middlewares/errorHandler');
@@ -13,6 +14,7 @@ const supplierRouter = require("./modules/suppliers");
 // App
 const app = express();
 
+app.use(morgan('dev'));
 app.use(express.json()); // برای پارس کردن Body درخواست‌ها
 app.use(cors());
 app.use(express.json());
