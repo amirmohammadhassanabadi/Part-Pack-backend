@@ -1,11 +1,11 @@
 const supplierService = require("../services/supplier.service");
+const AppError = require("../../../core/utils/appError")
 
 class SupplierController {
   async createSupplier(req, res, next) {
     try {
       console.log("step-3");
       
-      console.log(req.body);
       if (!req.body) {
         return next(new AppError("بدنه درخواست (body) یافت نشد.", 400));
       }
@@ -16,9 +16,10 @@ class SupplierController {
         name: name?.trim(),
         address: address?.trim(),
         phoneNumbers: {
-          bale: phoneNumbers?.bale?.trim(),
-          telegram: phoneNumbers?.telegram?.trim(),
+          mobile: phoneNumbers?.mobile?.trim(),
           landLine: phoneNumbers?.landLine?.trim(),
+          telegram: phoneNumbers?.telegram?.trim(),
+          bale: phoneNumbers?.bale?.trim(),
         },
         partTypes: partTypes || [],
         brands: brands || [],

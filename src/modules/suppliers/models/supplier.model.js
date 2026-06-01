@@ -20,13 +20,16 @@ const supplierSchema = new mongoose.Schema(
     },
 
     phoneNumbers: {
-      bale: {
+      mobile: {
+        type: String,
+      },
+      landLine: {
         type: String,
       },
       telegram: {
         type: String,
       },
-      landLine: {
+      bale: {
         type: String,
       },
     },

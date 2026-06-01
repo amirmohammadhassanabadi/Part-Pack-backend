@@ -32,8 +32,7 @@ app.get("/healthz", (req, res) => {
 
 // Routers
 // app.use("/api/v1/vehicles", vehicleRouter);
-app.use("/api/v1/suppliers", (req, res, next) => {console.log("step-1");
-}, supplierRouter);
+app.use("/api/v1/suppliers", supplierRouter);
 // app.use("/api/v1/parts", partRouter);
 // app.use("/api/v1/orders", orderRouter);
 
