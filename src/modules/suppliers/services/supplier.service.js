@@ -33,12 +33,12 @@ class SupplierService {
 
     // ۲. بررسی تکراری بودن شماره بله (Bale Number Check)
     // با توجه به ساختار nested در اسکیما: phoneNumbers.bale
-    const existingBale = await supplierRepository.findOne({
-      "phoneNumbers.bale": phoneNumbers.bale,
+    const existingMobile = await supplierRepository.findOne({
+      "phoneNumbers.mobile": phoneNumbers.mobile,
     });
 
-    if (existingBale) {
-      throw new AppError("این شماره بله متعلق به تأمین‌کننده دیگری است.", 400);
+    if (existingMobile) {
+      throw new AppError("این شماره همراه متعلق به تأمین‌کننده دیگری است.", 400);
     }
 
     // ۳. حالا که خیالمون راحته تکراری نیست، کد جدید رو تولید می‌کنیم

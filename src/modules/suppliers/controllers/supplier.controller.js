@@ -30,7 +30,7 @@ class SupplierController {
 
       res.status(201).json({
         success: true,
-        message: "ok"
+        message: "ثبت نام با موفقیت انجام شد"
       });
     } catch (error) {
       next(error);
