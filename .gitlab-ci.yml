@@ -1,0 +1,31 @@
+stages:
+- build
+- deploy
+
+workflow:
+  rules:
+  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
+  - when: never
+
+variables:
+  IMAGE_NAME: "registry.part-pack.ir/part-pack/backend"
+  IMAGE_TAG: "production"
+  INFRA_PROJECT_ID: "3"
+  INFRA_REF: "main"
+  DEPLOY_SERVICE: "backend"
+  GITLAB_API_URL: "https://gitlab.part-pack.ir/api/v4"
+
+build:
+  stage: build
+  tags:
+  - part-pack
+  script:
+  - docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+
+deploy:
+  stage: deploy
+  tags:
+  - part-pack
+  script:
+  - 'chmod +x scripts/trigger-infra-deploy.sh'
+  - './scripts/trigger-infra-deploy.sh'
