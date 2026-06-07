@@ -10,7 +10,7 @@ workflow:
 variables:
   IMAGE_NAME: "registry.part-pack.ir/part-pack/backend"
   IMAGE_TAG: "production"
-  INFRA_PROJECT_ID: "3"
+  INFRA_PROJECT_ID: "8"
   INFRA_REF: "main"
   DEPLOY_SERVICE: "backend"
   GITLAB_API_URL: "https://gitlab.part-pack.ir/api/v4"
