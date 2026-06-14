@@ -11,10 +11,10 @@ const validateSupplierCreate = (req, res, next) => {
   }
 
   // 2. بررسی شماره بله (به عنوان فیلد ارتباطی اجباری سیستم)
-  if (!phoneNumbers?.bale || !phoneNumbers.bale.trim()) {
+  if (!phoneNumbers?.mobile || !phoneNumbers.mobile.trim()) {
     errors.push({
       field: "phoneNumbers.bale",
-      message: "وارد کردن شماره بله برای هماهنگی‌ها الزامی است.",
+      message: "وارد کردن شماره شماره همراه الزامی است.",
     });
   }
 
