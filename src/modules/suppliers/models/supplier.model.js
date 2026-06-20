@@ -2,13 +2,14 @@ const mongoose = require("mongoose");
 
 const supplierSchema = new mongoose.Schema(
   {
-    name: {
+    code: {
       type: String,
       required: true,
+      unique: true,
       trim: true,
     },
 
-    code: {
+    name: {
       type: String,
       required: true,
       trim: true,
@@ -19,57 +20,71 @@ const supplierSchema = new mongoose.Schema(
       trim: true,
     },
 
-    phoneNumbers: {
+    contacts: {
       mobile: {
         type: String,
+        required: true,
+        trim: true,
       },
       landLine: {
         type: String,
+        trim: true,
       },
       telegram: {
         type: String,
+        trim: true,
       },
-      bale: {
-        type: String,
+    },
+
+    coverage: [
+      {
+        brandId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Brand",
+          required: true,
+        },
+        allModels: {
+          type: Boolean,
+          default: false,
+        },
+        carModelIds: {
+          type: [mongoose.Schema.Types.ObjectId],
+          ref: "CarModel",
+          default: [],
+        },
+        categoryIds: {
+          type: [mongoose.Schema.Types.ObjectId],
+          ref: "PartCategory",
+          required: true,
+        },
+        _id: false,
       },
+    ],
+
+    stats: {
+      totalPartsSold: { type: Number, default: 0 },
+      totalRevenue: { type: Number, default: 0 },
+      score: { type: Number, default: 0 },
+      lastCalculatedAt: { type: Date, default: null },
+    },
+
+    balance: {
+      type: Number,
+      default: 0,
+    },
+
+    balanceUpdatedAt: {
+      type: Date,
+      default: null,
     },
 
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
-
-    partTypes: [
-      {
-        type: String,
-        enum: [
-          "engine",
-          "body",
-          "electric",
-          "consumable",
-          "suspension",
-          "other",
-        ],
-      },
-    ],
-
-    brands: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Brand",
-      },
-    ],
-
-    carModels: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "CarModel",
-      },
-    ],
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Supplier", supplierSchema);
