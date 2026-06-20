@@ -30,4 +30,4 @@ const partCategorySchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-module.exports = mongoose.model("PartCategory", carModelSchema);
+module.exports = mongoose.model("PartCategory", partCategorySchema);
