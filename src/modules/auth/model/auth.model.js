@@ -1,13 +1,12 @@
 const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema(
+const authSchema = new mongoose.Schema(
   {
     phone: {
       type: String,
       required: true,
       unique: true,
       trim: true,
-      index: true,
     },
 
     role: {
@@ -18,7 +17,7 @@ const userSchema = new mongoose.Schema(
 
     refModel: {
       type: String,
-      enum: ["Admin", "Operator", "Customer", "Supplier"],
+      enum: ["Staff", "Customer", "Supplier"],
     },
 
     refId: {
@@ -35,4 +34,4 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model("Auth", authSchema);
