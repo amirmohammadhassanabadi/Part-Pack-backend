@@ -6,6 +6,7 @@ const morgan = require("morgan");
 const errorHandler = require('./core/middlewares/errorHandler');
 
 // Modules Importing
+const authRouter = require("./modules/auth");
 // const { vehicleRouter } = require("./modules/vehicles");
 const supplierRouter = require("./modules/suppliers");
 // const partRouter = require("./modules/parts");
@@ -31,6 +32,7 @@ app.get("/healthz", (req, res) => {
 })
 
 // Routers
+app.use("/api/v1/auth", authRouter);
 // app.use("/api/v1/vehicles", vehicleRouter);
 app.use("/api/v1/suppliers", supplierRouter);
 // app.use("/api/v1/parts", partRouter);

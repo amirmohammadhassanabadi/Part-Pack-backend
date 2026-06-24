@@ -117,3 +117,5 @@ async function logout(refreshToken) {
 
   return { success: true };
 }
+
+module.exports = { requestOtp, verifyOtp, refreshToken, logout };
