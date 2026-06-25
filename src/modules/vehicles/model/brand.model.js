@@ -17,10 +17,12 @@ const brandSchema = new mongoose.Schema(
 
     logoUrl: {
       type: String,
+      trim: true,
     },
 
     country: {
       type: String,
+      trim: true,
     },
 
     isActive: {

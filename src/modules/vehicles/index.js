@@ -1,13 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const brandRouter = require("./routes/brand.routes");
 
-const brandRoutes = require("./routes/brand.routes");
-const carModelRoutes = require("./routes/carModel.routes");
+router.use("/brands", brandRouter);
 
-// تعریف پیشوند برای هر بخش از ماژول
-router.use("/brands", brandRoutes);
-router.use("/models", carModelRoutes);
-
-module.exports = {
-  vehicleRouter: router
-};
+module.exports = router;

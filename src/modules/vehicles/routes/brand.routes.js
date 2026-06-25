@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const brandController = require("../controllers/brand.controller");
+const brandController = require("../controller/brand.controller");
+const { authenticate, authorize } = require("../../../core/middlewares/auth.middleware");
 
-// مسیرهای مربوط به برند
-router.post("/", brandController.createBrand);
 router.get("/", brandController.getBrands);
 router.get("/:id", brandController.getBrandById);
-router.patch("/:id", brandController.updateBrand);
-router.delete("/:id", brandController.deleteBrand);
+
+router.post("/", authenticate, authorize("admin", "operator"), brandController.createBrand);
+router.put("/:id", authenticate, authorize("admin", "operator"), brandController.updateBrand);
+router.delete("/:id", authenticate, authorize("admin", "operator"), brandController.deleteBrand);
 
 module.exports = router;
