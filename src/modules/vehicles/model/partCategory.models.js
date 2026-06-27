@@ -17,7 +17,6 @@ const partCategorySchema = new mongoose.Schema(
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PartCategory",
-      required: true,
       index: true,
     },
 
