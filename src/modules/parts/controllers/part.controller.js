@@ -47,7 +47,9 @@ async function updatePart(req, res, next) {
 async function deletePart(req, res, next) {
   try {
     await partService.deletePart(req.params.id);
-    res.status(200).json({ success: true, message: "Part deactivated successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Part deactivated successfully" });
   } catch (error) {
     next(error);
   }
@@ -66,7 +68,10 @@ async function addCompatibility(req, res, next) {
 async function removeCompatibility(req, res, next) {
   try {
     const { carModelIds } = req.body;
-    const part = await partService.removeCompatibility(req.params.id, carModelIds);
+    const part = await partService.removeCompatibility(
+      req.params.id,
+      carModelIds,
+    );
     res.status(200).json({ success: true, data: part });
   } catch (error) {
     next(error);
