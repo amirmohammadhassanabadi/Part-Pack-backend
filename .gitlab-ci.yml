@@ -22,6 +22,8 @@ build_dev:
   - part-pack-backend-dev
   rules:
   - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
+  before_script:
+  - docker rmi "$IMAGE_NAME:$IMAGE_TAG_DEV"
   script:
   - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
 
