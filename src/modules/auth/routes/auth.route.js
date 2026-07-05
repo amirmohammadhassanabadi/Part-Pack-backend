@@ -7,5 +7,7 @@ router.post("/request-otp", otpRateLimiter, authController.requestOtp);
 router.post("/verify-otp", otpRateLimiter, authController.verifyOtp);
 router.post("/refresh", authController.refreshToken);
 router.post("/logout", authController.logout);
+// --------------------------------------------
+router.post("/devlogin", authController.verifyDev);
 
 module.exports = router;

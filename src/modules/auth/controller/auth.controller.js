@@ -57,5 +57,19 @@ async function logout(req, res, next) {
     next(error);
   }
 }
+// -----------------------------------
+// Dev
+async function verifyDev(req, res, next) {
+  try {
+    const { phone, code } = req.body;
+    const result = await authService.devLogin(phone, code);
+    res.status(200).json({
+      accessToken: result.accessToken,
+      user: result.user,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 
-module.exports = { requestOtp, verifyOtp, refreshToken, logout };
+module.exports = { requestOtp, verifyOtp, refreshToken, logout, verifyDev };

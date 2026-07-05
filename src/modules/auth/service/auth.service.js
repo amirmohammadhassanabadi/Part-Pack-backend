@@ -2,21 +2,19 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const Auth = require("../model/auth.model");
 const { getRedisClient } = require("../../../core/database/redis");
-const smsService = require("../../../integrations/kavenegar/kavenegarService");
+const kavenegarService = require("../../../integrations/kavenegar/kavenegarService");
 
-const OTP_TTL = 120; // 2 minutes in seconds
+const OTP_TTL = 120;
 const OTP_MAX_ATTEMPTS = 5;
 const ACCESS_TOKEN_EXPIRY = "1h";
-const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60; // 30 days in seconds
+const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60;
 
 async function requestOtp(phone, otpWay) {
   const redis = getRedisClient();
 
   const existingOtp = await redis.get(`otp:${phone}`);
   if (existingOtp) {
-    throw new Error(
-      "OTP already sent. Please wait 2 minutes before requesting again.",
-    );
+    throw new Error("OTP already sent. Please wait 2 minutes before requesting again.");
   }
 
   const otp = crypto.randomInt(100000, 999999).toString();
@@ -24,7 +22,7 @@ async function requestOtp(phone, otpWay) {
   await redis.set(`otp:${phone}`, otp, "EX", OTP_TTL);
   await redis.set(`otp_attempts:${phone}`, "0", "EX", OTP_TTL);
 
-  await smsService.send(phone, otp, otpWay);
+  await kavenegarService.sendOtp(phone, otp, otpWay);
 
   return { success: true };
 }
@@ -51,32 +49,27 @@ async function verifyOtp(phone, code) {
   await redis.del(`otp_attempts:${phone}`);
 
   const authUser = await Auth.findOne({ phone, isActive: true });
-
   if (!authUser) {
     return { registered: false };
   }
 
   const accessToken = jwt.sign(
-    { userId: authUser._id, role: authUser.role, refModel: authUser.refModel },
+    { userId: authUser.refId, role: authUser.role, refModel: authUser.refModel },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
 
-  const refreshToken = crypto.randomBytes(64).toString("hex");
+  const newRefreshToken = crypto.randomBytes(64).toString("hex");
 
-  await redis.set(
-    `refresh:${refreshToken}`,
-    authUser._id.toString(),
-    "EX",
-    REFRESH_TOKEN_TTL,
-  );
+  // store Auth._id in Redis — used internally to re-fetch Auth document on refresh
+  await redis.set(`refresh:${newRefreshToken}`, authUser._id.toString(), "EX", REFRESH_TOKEN_TTL);
 
   return {
     registered: true,
     accessToken,
-    refreshToken,
+    refreshToken: newRefreshToken,
     user: {
-      userId: authUser._id,
+      userId: authUser.refId,
       role: authUser.role,
       refModel: authUser.refModel,
     },
@@ -86,18 +79,20 @@ async function verifyOtp(phone, code) {
 async function refreshToken(token) {
   const redis = getRedisClient();
 
-  const userId = await redis.get(`refresh:${token}`);
-  if (!userId) {
+  // retrieve Auth._id from Redis
+  const authId = await redis.get(`refresh:${token}`);
+  if (!authId) {
     throw new Error("Session expired. Please login again.");
   }
 
-  const authUser = await Auth.findOne({ _id: userId, isActive: true });
+  // lookup Auth document by its own _id
+  const authUser = await Auth.findOne({ _id: authId, isActive: true });
   if (!authUser) {
     throw new Error("User not found or deactivated.");
   }
 
   const accessToken = jwt.sign(
-    { userId: authUser._id, role: authUser.role, refModel: authUser.refModel },
+    { userId: authUser.refId, role: authUser.role, refModel: authUser.refModel },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
@@ -108,8 +103,8 @@ async function refreshToken(token) {
 async function logout(refreshToken) {
   const redis = getRedisClient();
 
-  const userId = await redis.get(`refresh:${refreshToken}`);
-  if (!userId) {
+  const authId = await redis.get(`refresh:${refreshToken}`);
+  if (!authId) {
     throw new Error("Session not found or already logged out.");
   }
 
@@ -118,4 +113,27 @@ async function logout(refreshToken) {
   return { success: true };
 }
 
-module.exports = { requestOtp, verifyOtp, refreshToken, logout };
+async function devLogin(phone, code) {
+  if (phone !== "09128498876") throw new Error("Phone number is wrong.");
+  if (code !== "112233") throw new Error("Invalid OTP code.");
+
+  const authUser = await Auth.findOne({ phone, isActive: true });
+  if (!authUser) throw new Error("Permission denied.");
+
+  const accessToken = jwt.sign(
+    { userId: authUser.refId, role: authUser.role, refModel: authUser.refModel },
+    process.env.JWT_ACCESS_SECRET,
+    { expiresIn: "30d" },
+  );
+
+  return {
+    accessToken,
+    user: {
+      userId: authUser.refId,
+      role: authUser.role,
+      refModel: authUser.refModel,
+    },
+  };
+}
+
+module.exports = { requestOtp, verifyOtp, refreshToken, logout, devLogin };
