@@ -4,7 +4,7 @@ stages:
 
 workflow:
   rules:
-  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
+  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/ || $CI_COMMIT_MESSAGE =~ /\[dev\]/'
   - when: never
 
 variables:
@@ -14,18 +14,45 @@ variables:
   INFRA_REF: "main"
   DEPLOY_SERVICE: "backend"
   GITLAB_API_URL: "https://gitlab.part-pack.ir/api/v4"
+  IMAGE_TAG_DEV: "development"
 
-build:
+build_dev:
+  stage: build
+  tags: 
+  - part-pack-backend-dev
+  rules:
+  - if: '$CI_COMMIT_MESSAGE ~= /\[dev\]/'
+  script:
+  - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
+
+build_prod:
   stage: build
   tags:
   - part-pack
+  rules:
+  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
   script:
   - docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
 
-deploy:
+deploy_dev:
+  stage: deploy
+  rules:
+  - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/' 
+  tags:
+  - part-pack-backend-dev
+  needs:
+  - build_dev
+  script:
+  - docker ps
+
+deploy_prod:
   stage: deploy
   tags:
   - part-pack
+  rules:
+  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
+  needs:
+  - build_prod
   script:
   - 'chmod +x scripts/trigger-infra-deploy.sh'
   - './scripts/trigger-infra-deploy.sh'
