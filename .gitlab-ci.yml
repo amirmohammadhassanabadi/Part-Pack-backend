@@ -43,7 +43,7 @@ deploy_dev:
   needs:
   - build_dev
   script:
-  - docker compose up -d --no-deps --force-recreate backend
+  - docker compose -f /deploy/docker-compose.yml up -d --no-deps --force-recreate backend
 
 deploy_prod:
   stage: deploy
