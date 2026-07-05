@@ -40,10 +40,18 @@ async function updateBrand(req, res, next) {
 async function deleteBrand(req, res, next) {
   try {
     await brandService.deleteBrand(req.params.id);
-    res.status(200).json({ success: true, message: "Brand deactivated successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Brand deactivated successfully" });
   } catch (error) {
     next(error);
   }
 }
 
-module.exports = { createBrand, getBrands, getBrandById, updateBrand, deleteBrand };
+module.exports = {
+  createBrand,
+  getBrands,
+  getBrandById,
+  updateBrand,
+  deleteBrand,
+};
