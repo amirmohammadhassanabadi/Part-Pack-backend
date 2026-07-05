@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const Auth = require("../model/auth.model");
 const { getRedisClient } = require("../../../core/database/redis");
-const smsService = require("../../../integrations/sms/smsService");
+const smsService = require("../../../integrations/kavenegar/kavenegarService");
 
 const OTP_TTL = 120; // 2 minutes in seconds
 const OTP_MAX_ATTEMPTS = 5;

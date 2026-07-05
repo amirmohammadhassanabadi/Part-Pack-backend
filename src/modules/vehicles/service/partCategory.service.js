@@ -1,4 +1,4 @@
-const PartCategory = require("../model/partCategory.model");
+const PartCategory = require("../model/partCategory.models");
 const slugify = require("slugify");
 
 async function createPartCategory({ name, parentId = null }) {

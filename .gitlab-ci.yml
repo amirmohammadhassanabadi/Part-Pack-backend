@@ -43,8 +43,7 @@ deploy_dev:
   needs:
   - build_dev
   script:
-  - cd /deploy
-  - ls -ltrh
+  - docker compose up -d --no-deps --force-recreate backend
 
 deploy_prod:
   stage: deploy

@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const carModelController = require("../controller/carModel.controller");
-const { authenticate, authorize } = require("../../../core/middlewares/auth.middleware");
 const { authenticate, authorize } = require("../../auth/middleware/auth.middleware");
 
 router.get("/", carModelController.getCarModels);
