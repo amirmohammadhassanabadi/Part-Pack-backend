@@ -21,7 +21,7 @@ build_dev:
   tags: 
   - part-pack-backend-dev
   rules:
-  - if: '$CI_COMMIT_MESSAGE ~= /\[dev\]/'
+  - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
   script:
   - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
 
