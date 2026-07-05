@@ -44,8 +44,10 @@ deploy_dev:
   needs:
   - build_dev
   script:
-  - docker images | grep part-pack/backend
+  - docker image inspect registry.part-pack.ir/part-pack/backend:development --format '{{.Id}}'
   - docker compose -f /deploy/docker-compose.yml up -d --no-deps --force-recreate backend
+  - docker ps -a
+  - docker inspect part-pack-dev-backend-1 --format '{{.Image}}'
 
 deploy_prod:
   stage: deploy
