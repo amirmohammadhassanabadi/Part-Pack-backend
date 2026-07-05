@@ -1,12 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const carModelController = require("../controllers/carModel.controller");
+const carModelController = require("../controller/carModel.controller");
+const { authenticate, authorize } = require("../../../core/middlewares/auth.middleware");
+const { authenticate, authorize } = require("../../auth/middleware/auth.middleware");
 
-// مسیرهای مربوط به مدل خودرو
-router.post("/", carModelController.createCarModel);
 router.get("/", carModelController.getCarModels);
 router.get("/:id", carModelController.getCarModelById);
-router.patch("/:id", carModelController.updateCarModel);
-router.delete("/:id", carModelController.deleteCarModel);
+
+router.post("/", authenticate, authorize("admin", "operator"), carModelController.createCarModel);
+router.put("/:id", authenticate, authorize("admin", "operator"), carModelController.updateCarModel);
+router.delete("/:id", authenticate, authorize("admin", "operator"), carModelController.deleteCarModel);
 
 module.exports = router;

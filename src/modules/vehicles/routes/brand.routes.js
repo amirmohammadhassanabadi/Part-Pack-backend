@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const brandController = require("../controller/brand.controller");
-const { authenticate, authorize } = require("../../../core/middlewares/auth.middleware");
+const { authenticate, authorize } = require("../../auth/middleware/auth.middleware");
 
 router.get("/", brandController.getBrands);
 router.get("/:id", brandController.getBrandById);
