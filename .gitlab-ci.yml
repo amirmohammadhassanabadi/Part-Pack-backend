@@ -43,7 +43,8 @@ deploy_dev:
   needs:
   - build_dev
   script:
-  - docker ps
+  - cd /deploy
+  - ls -ltrh
 
 deploy_prod:
   stage: deploy
