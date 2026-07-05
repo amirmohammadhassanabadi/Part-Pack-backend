@@ -22,10 +22,9 @@ build_dev:
   - part-pack-backend-dev
   rules:
   - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
-  before_script:
-  - docker rmi "$IMAGE_NAME:$IMAGE_TAG_DEV"
   script:
   - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
+  - docker images | grep part-pack/backend
 
 build_prod:
   stage: build
@@ -45,6 +44,7 @@ deploy_dev:
   needs:
   - build_dev
   script:
+  - docker images | grep part-pack/backend
   - docker compose -f /deploy/docker-compose.yml up -d --no-deps --force-recreate backend
 
 deploy_prod:
