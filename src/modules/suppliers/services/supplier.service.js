@@ -1,504 +1,377 @@
-// const Supplier = require("../model/supplier.model");
-// const Brand = require("../../vehicles/model/brand.model");
-// const CarModel = require("../../vehicles/model/carModel.model");
-// const PartCategory = require("../../vehicles/model/partCategory.model");
+const mongoose = require("mongoose");
+const Supplier = require("./supplier.model");
+const Brand = require("../brand/brand.model");
+const CarModel = require("../carModel/carModel.model");
+const Category = require("../category/category.model");
 
-// async function createSupplier({ name, address, contacts }) {
-//   const exists = await Supplier.findOne({ "contacts.mobile": contacts.mobile });
-//   if (exists) throw new Error("Supplier with this mobile number already exists.");
-
-//   const supplier = await Supplier.create({
-//     name,
-//     address,
-//     contacts,
-//   });
-
-//   return supplier;
-// }
-
-// async function getSuppliers({ isActive, brandIds, categoryIds, page, limit } = {}) {
-//   const filter = {};
-
-//   if (isActive === true) filter.isActive = true;
-//   if (brandIds && brandIds.length > 0) filter["coverage.brandId"] = { $in: brandIds };
-//   if (categoryIds && categoryIds.length > 0) filter["coverage.categoryIds"] = { $in: categoryIds };
-
-//   const parsedPage = Math.max(1, parseInt(page) || 1);
-//   const parsedLimit = Math.min(100, Math.max(1, parseInt(limit) || 20));
-//   const skip = (parsedPage - 1) * parsedLimit;
-
-//   const [data, total] = await Promise.all([
-//     Supplier.find(filter).skip(skip).limit(parsedLimit).sort({ name: 1 }),
-//     Supplier.countDocuments(filter),
-//   ]);
-
-//   return {
-//     data,
-//     pagination: {
-//       total,
-//       page: parsedPage,
-//       limit: parsedLimit,
-//       totalPages: Math.ceil(total / parsedLimit),
-//     },
-//   };
-// }
-
-// async function getSupplierById(id) {
-//   const supplier = await Supplier.findById(id);
-//   if (!supplier) throw new Error("Supplier not found.");
-//   return supplier;
-// }
-
-// async function updateSupplier(id, data) {
-//   const allowedFields = ["name", "address", "contacts", "isActive"];
-//   const receivedFields = Object.keys(data);
-//   const invalidFields = receivedFields.filter((f) => !allowedFields.includes(f));
-
-//   if (invalidFields.length > 0) throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
-//   if (receivedFields.length === 0) throw new Error("No data provided for update.");
-
-//   if (data.contacts?.mobile) {
-//     const exists = await Supplier.findOne({
-//       "contacts.mobile": data.contacts.mobile,
-//       _id: { $ne: id },
-//     });
-//     if (exists) throw new Error("Supplier with this mobile number already exists.");
-//   }
-
-//   const updated = await Supplier.findByIdAndUpdate(id, data, {
-//     new: true,
-//     runValidators: true,
-//   });
-//   if (!updated) throw new Error("Supplier not found.");
-
-//   return updated;
-// }
-
-// async function deleteSupplier(id) {
-//   const deleted = await Supplier.findByIdAndUpdate(
-//     id,
-//     { isActive: false },
-//     { new: true }
-//   );
-//   if (!deleted) throw new Error("Supplier not found.");
-//   return deleted;
-// }
-
-// async function addCoverage(id, coverageItem) {
-//   const supplier = await Supplier.findById(id);
-//   if (!supplier) throw new Error("Supplier not found.");
-
-//   const brand = await Brand.findById(coverageItem.brandId);
-//   if (!brand) throw new Error("Brand not found.");
-//   if (!brand.isActive) throw new Error("Brand is not active.");
-
-//   const exists = supplier.coverage.some(
-//     (c) => c.brandId.toString() === coverageItem.brandId
-//   );
-//   if (exists) throw new Error("Coverage for this brand already exists.");
-
-//   if (!coverageItem.categoryIds || coverageItem.categoryIds.length === 0) {
-//     throw new Error("At least one category is required.");
-//   }
-
-//   const categoryCount = await PartCategory.countDocuments({
-//     _id: { $in: coverageItem.categoryIds },
-//     isActive: true,
-//   });
-//   if (categoryCount !== coverageItem.categoryIds.length) {
-//     throw new Error("One or more categories not found or inactive.");
-//   }
-
-//   if (coverageItem.allModels === false || coverageItem.allModels === undefined) {
-//     if (!coverageItem.carModelIds || coverageItem.carModelIds.length === 0) {
-//       throw new Error("carModelIds is required when allModels is false.");
-//     }
-
-//     const carModelCount = await CarModel.countDocuments({
-//       _id: { $in: coverageItem.carModelIds },
-//       brand: coverageItem.brandId,
-//       isActive: true,
-//     });
-//     if (carModelCount !== coverageItem.carModelIds.length) {
-//       throw new Error("One or more car models not found, inactive, or do not belong to this brand.");
-//     }
-//   }
-
-//   const updated = await Supplier.findByIdAndUpdate(
-//     id,
-//     { $push: { coverage: coverageItem } },
-//     { new: true, runValidators: true }
-//   );
-
-//   return updated;
-// }
-
-// async function removeCoverage(id, brandId) {
-//   const updated = await Supplier.findByIdAndUpdate(
-//     id,
-//     { $pull: { coverage: { brandId } } },
-//     { new: true }
-//   );
-//   if (!updated) throw new Error("Supplier not found.");
-//   return updated;
-// }
-
-// async function updateCoverage(id, brandId, data) {
-//   const supplier = await Supplier.findById(id);
-//   if (!supplier) throw new Error("Supplier not found.");
-
-//   const coverageIndex = supplier.coverage.findIndex(
-//     (c) => c.brandId.toString() === brandId
-//   );
-//   if (coverageIndex === -1) throw new Error("Coverage for this brand not found.");
-
-//   const allowedFields = ["allModels", "carModelIds", "categoryIds"];
-//   const receivedFields = Object.keys(data);
-//   const invalidFields = receivedFields.filter((f) => !allowedFields.includes(f));
-//   if (invalidFields.length > 0) throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
-
-//   const updated = await Supplier.findByIdAndUpdate(
-//     id,
-//     {
-//       $set: {
-//         [`coverage.${coverageIndex}.allModels`]: data.allModels ?? supplier.coverage[coverageIndex].allModels,
-//         [`coverage.${coverageIndex}.carModelIds`]: data.carModelIds ?? supplier.coverage[coverageIndex].carModelIds,
-//         [`coverage.${coverageIndex}.categoryIds`]: data.categoryIds ?? supplier.coverage[coverageIndex].categoryIds,
-//       },
-//     },
-//     { new: true, runValidators: true }
-//   );
-
-//   return updated;
-// }
-
-// module.exports = {
-//   createSupplier,
-//   getSuppliers,
-//   getSupplierById,
-//   updateSupplier,
-//   deleteSupplier,
-//   addCoverage,
-//   removeCoverage,
-//   updateCoverage,
-// };
-// ===========================================================================
-const Supplier = require("../model/supplier.model");
-const Brand = require("../../vehicles/model/brand.model");
-const CarModel = require("../../vehicles/model/carModel.model");
-const PartCategory = require("../../vehicles/model/partCategory.model");
-
-/* =========================================================
-   Supplier CRUD
-========================================================= */
-
-async function createSupplier({ name, address, contacts }) {
-  const exists = await Supplier.findOne({
-    "contacts.mobile": contacts.mobile,
-  });
-
-  if (exists) {
-    throw new Error("Supplier with this mobile number already exists.");
+async function validateCoverageReferences({
+  brandId,
+  allModels,
+  carModelIds = [],
+  allCategory,
+  categoryIds = [],
+}) {
+  if (!mongoose.Types.ObjectId.isValid(brandId)) {
+    const error = new Error("Invalid brandId");
+    error.statusCode = 400;
+    throw error;
   }
 
-  const supplier = await Supplier.create({
-    name,
-    address,
-    contacts,
-  });
+  const brandExists = await Brand.exists({ _id: brandId });
+  if (!brandExists) {
+    const error = new Error("Brand not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
-  return supplier;
+  if (!allModels) {
+    if (!Array.isArray(carModelIds) || carModelIds.length === 0) {
+      const error = new Error(
+        "carModelIds is required when allModels is false"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    for (const id of carModelIds) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        const error = new Error(`Invalid carModelId: ${id}`);
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const foundModelsCount = await CarModel.countDocuments({
+      _id: { $in: carModelIds },
+      brand: brandId,
+    });
+
+    if (foundModelsCount !== carModelIds.length) {
+      const error = new Error(
+        "One or more carModelIds are invalid or do not belong to the selected brand"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  if (!allCategory) {
+    if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+      const error = new Error(
+        "categoryIds is required when allCategory is false"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    for (const id of categoryIds) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        const error = new Error(`Invalid categoryId: ${id}`);
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const foundCategoriesCount = await Category.countDocuments({
+      _id: { $in: categoryIds },
+    });
+
+    if (foundCategoriesCount !== categoryIds.length) {
+      const error = new Error("One or more categoryIds are invalid");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
 }
 
-async function getSuppliers({
-  isActive,
-  brandIds,
-  categoryIds,
-  page,
-  limit,
-} = {}) {
-  const filter = {};
-
-  if (isActive === true) {
-    filter.isActive = true;
-  }
-
-  if (brandIds?.length) {
-    filter["coverage.brandId"] = { $in: brandIds };
-  }
-
-  if (categoryIds?.length) {
-    filter["coverage.categoryIds"] = { $in: categoryIds };
-  }
-
-  const parsedPage = Math.max(1, parseInt(page) || 1);
-  const parsedLimit = Math.min(100, Math.max(1, parseInt(limit) || 20));
-
-  const skip = (parsedPage - 1) * parsedLimit;
-
-  const [data, total] = await Promise.all([
-    Supplier.find(filter)
-      .skip(skip)
-      .limit(parsedLimit)
-      .sort({ name: 1 }),
-
-    Supplier.countDocuments(filter),
-  ]);
-
+function normalizeCoverageInput(payload) {
   return {
-    data,
-    pagination: {
-      total,
-      page: parsedPage,
-      limit: parsedLimit,
-      totalPages: Math.ceil(total / parsedLimit),
-    },
+    brandId: payload.brandId,
+    allModels: Boolean(payload.allModels),
+    carModelIds: payload.allModels ? [] : payload.carModelIds || [],
+    allCategory: Boolean(payload.allCategory),
+    categoryIds: payload.allCategory ? [] : payload.categoryIds || [],
   };
 }
 
+async function createSupplier(data) {
+  const supplier = await Supplier.create(data);
+  return supplier;
+}
+
+async function getSuppliers(filters = {}) {
+  const suppliers = await Supplier.find(filters)
+    .populate("user", "name email phone")
+    .populate("coverage.brandId", "name")
+    .populate("coverage.carModelIds", "name")
+    .populate("coverage.categoryIds", "name");
+
+  return suppliers;
+}
+
 async function getSupplierById(id) {
-  const supplier = await Supplier.findById(id);
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const supplier = await Supplier.findById(id)
+    .populate("user", "name email phone")
+    .populate("coverage.brandId", "name")
+    .populate("coverage.carModelIds", "name")
+    .populate("coverage.categoryIds", "name");
 
   if (!supplier) {
-    throw new Error("Supplier not found.");
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
   }
 
   return supplier;
 }
 
 async function updateSupplier(id, data) {
-  const allowedFields = [
-    "name",
-    "address",
-    "contacts",
-    "isActive",
-  ];
-
-  const receivedFields = Object.keys(data);
-
-  const invalidFields = receivedFields.filter(
-    (f) => !allowedFields.includes(f)
-  );
-
-  if (invalidFields.length > 0) {
-    throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
   }
 
-  if (receivedFields.length === 0) {
-    throw new Error("No data provided for update.");
-  }
-
-  if (data.contacts?.mobile) {
-    const exists = await Supplier.findOne({
-      "contacts.mobile": data.contacts.mobile,
-      _id: { $ne: id },
-    });
-
-    if (exists) {
-      throw new Error(
-        "Supplier with this mobile number already exists."
-      );
-    }
-  }
-
-  const updated = await Supplier.findByIdAndUpdate(id, data, {
+  const supplier = await Supplier.findByIdAndUpdate(id, data, {
     new: true,
     runValidators: true,
   });
 
-  if (!updated) {
-    throw new Error("Supplier not found.");
+  if (!supplier) {
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
   }
 
-  return updated;
+  return supplier;
 }
 
 async function deleteSupplier(id) {
-  const deleted = await Supplier.findByIdAndUpdate(
-    id,
-    { isActive: false },
-    { new: true }
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const supplier = await Supplier.findByIdAndDelete(id);
+
+  if (!supplier) {
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return supplier;
+}
+
+async function addCoverage(supplierId, payload) {
+  if (!mongoose.Types.ObjectId.isValid(supplierId)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const coverageInput = normalizeCoverageInput(payload);
+
+  await validateCoverageReferences(coverageInput);
+
+  const supplier = await Supplier.findById(supplierId);
+  if (!supplier) {
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const alreadyExists = supplier.coverage.some(
+    (item) => item.brandId.toString() === coverageInput.brandId.toString()
   );
 
-  if (!deleted) {
-    throw new Error("Supplier not found.");
+  if (alreadyExists) {
+    const error = new Error("Coverage for this brand already exists");
+    error.statusCode = 409;
+    throw error;
   }
 
-  return deleted;
+  supplier.coverage.push(coverageInput);
+  await supplier.save();
+
+  return supplier;
 }
 
-/* =========================================================
-   Coverage Helpers
-========================================================= */
-
-async function validateCoverage({
-  brandId,
-  allModels,
-  carModelIds,
-  allCategory,
-  categoryIds,
-}) {
-  const brandExists = await Brand.exists({ _id: brandId });
-
-  if (!brandExists) {
-    throw new Error("Brand not found.");
+async function replaceCoverage(supplierId, brandId, payload) {
+  if (!mongoose.Types.ObjectId.isValid(supplierId)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
   }
 
-  if (!allModels) {
-    if (!carModelIds || carModelIds.length === 0) {
-      throw new Error(
-        "carModelIds is required when allModels is false."
-      );
-    }
-
-    const modelsCount = await CarModel.countDocuments({
-      _id: { $in: carModelIds },
-    });
-
-    if (modelsCount !== carModelIds.length) {
-      throw new Error("One or more carModelIds are invalid.");
-    }
+  if (!mongoose.Types.ObjectId.isValid(brandId)) {
+    const error = new Error("Invalid brandId");
+    error.statusCode = 400;
+    throw error;
   }
 
-  if (!allCategory) {
-    if (!categoryIds || categoryIds.length === 0) {
-      throw new Error(
-        "categoryIds is required when allCategory is false."
-      );
-    }
-
-    const categoriesCount = await PartCategory.countDocuments({
-      _id: { $in: categoryIds },
-    });
-
-    if (categoriesCount !== categoryIds.length) {
-      throw new Error("One or more categoryIds are invalid.");
-    }
+  const supplier = await Supplier.findById(supplierId);
+  if (!supplier) {
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
   }
-}
 
-/* =========================================================
-   Coverage Management
-========================================================= */
+  const coverageIndex = supplier.coverage.findIndex(
+    (item) => item.brandId.toString() === brandId.toString()
+  );
 
-async function addCoverage(supplierId, coverageData) {
-  await validateCoverage(coverageData);
+  if (coverageIndex === -1) {
+    const error = new Error("Coverage for this brand not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
-  const supplier = await getSupplierById(supplierId);
-
-  supplier.coverage.push({
-    brandId: coverageData.brandId,
-    allModels: coverageData.allModels,
-    carModelIds: coverageData.allModels
-      ? []
-      : coverageData.carModelIds,
-
-    allCategory: coverageData.allCategory,
-    categoryIds: coverageData.allCategory
-      ? []
-      : coverageData.categoryIds,
+  const coverageInput = normalizeCoverageInput({
+    ...payload,
+    brandId,
   });
 
+  await validateCoverageReferences(coverageInput);
+
+  supplier.coverage[coverageIndex] = coverageInput;
   await supplier.save();
 
   return supplier;
 }
 
-async function removeCoverage(supplierId, coverageIndex) {
-  const supplier = await getSupplierById(supplierId);
-
-  if (
-    coverageIndex < 0 ||
-    coverageIndex >= supplier.coverage.length
-  ) {
-    throw new Error("Invalid coverage index.");
+async function removeCoverage(supplierId, brandId) {
+  if (!mongoose.Types.ObjectId.isValid(supplierId)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
   }
 
-  supplier.coverage.splice(coverageIndex, 1);
-
-  await supplier.save();
-
-  return supplier;
-}
-
-async function replaceCoverage(
-  supplierId,
-  coverageIndex,
-  coverageData
-) {
-  await validateCoverage(coverageData);
-
-  const supplier = await getSupplierById(supplierId);
-
-  if (
-    coverageIndex < 0 ||
-    coverageIndex >= supplier.coverage.length
-  ) {
-    throw new Error("Invalid coverage index.");
+  if (!mongoose.Types.ObjectId.isValid(brandId)) {
+    const error = new Error("Invalid brandId");
+    error.statusCode = 400;
+    throw error;
   }
 
-  supplier.coverage[coverageIndex] = {
-    brandId: coverageData.brandId,
+  const supplier = await Supplier.findById(supplierId);
+  if (!supplier) {
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
-    allModels: coverageData.allModels,
-    carModelIds: coverageData.allModels
-      ? []
-      : coverageData.carModelIds,
+  const initialLength = supplier.coverage.length;
 
-    allCategory: coverageData.allCategory,
-    categoryIds: coverageData.allCategory
-      ? []
-      : coverageData.categoryIds,
-  };
+  supplier.coverage = supplier.coverage.filter(
+    (item) => item.brandId.toString() !== brandId.toString()
+  );
+
+  if (supplier.coverage.length === initialLength) {
+    const error = new Error("Coverage for this brand not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
   await supplier.save();
 
   return supplier;
 }
 
-/* =========================================================
-   Supplier Matching
-========================================================= */
+async function findSuppliersForOrder({ brandId, carModelId, categoryId }) {
+  if (!brandId || !carModelId || !categoryId) {
+    const error = new Error(
+      "brandId, carModelId and categoryId are required"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
 
-async function findSuppliersForOrder({
-  brandId,
-  carModelId,
-  categoryId,
-}) {
+  if (
+    !mongoose.Types.ObjectId.isValid(brandId) ||
+    !mongoose.Types.ObjectId.isValid(carModelId) ||
+    !mongoose.Types.ObjectId.isValid(categoryId)
+  ) {
+    const error = new Error("Invalid brandId, carModelId or categoryId");
+    error.statusCode = 400;
+    throw error;
+  }
+
   const suppliers = await Supplier.find({
     isActive: true,
+    coverage: {
+      $elemMatch: {
+        brandId,
+        $and: [
+          {
+            $or: [{ allModels: true }, { carModelIds: carModelId }],
+          },
+          {
+            $or: [{ allCategory: true }, { categoryIds: categoryId }],
+          },
+        ],
+      },
+    },
+  })
+    .populate("user", "name email phone")
+    .populate("coverage.brandId", "name");
+
+  return suppliers;
+}
+
+async function recordSuccessfulSale(supplierId, amount = 0) {
+  if (!mongoose.Types.ObjectId.isValid(supplierId)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const update = {
+    $inc: {
+      totalSalesCount: 1,
+      totalRevenue: Number(amount) || 0,
+    },
+  };
+
+  const supplier = await Supplier.findByIdAndUpdate(supplierId, update, {
+    new: true,
   });
 
-  const matchedSuppliers = suppliers.filter((supplier) => {
-    return supplier.coverage.some((coverage) => {
-      const brandMatch =
-        coverage.brandId.toString() === brandId.toString();
+  if (!supplier) {
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
-      if (!brandMatch) {
-        return false;
-      }
+  return supplier;
+}
 
-      const modelMatch =
-        coverage.allModels ||
-        coverage.carModelIds.some(
-          (id) => id.toString() === carModelId.toString()
-        );
+async function updateSupplierScore(supplierId, score) {
+  if (!mongoose.Types.ObjectId.isValid(supplierId)) {
+    const error = new Error("Invalid supplier id");
+    error.statusCode = 400;
+    throw error;
+  }
 
-      if (!modelMatch) {
-        return false;
-      }
+  const supplier = await Supplier.findByIdAndUpdate(
+    supplierId,
+    { score },
+    { new: true, runValidators: true }
+  );
 
-      const categoryMatch =
-        coverage.allCategory ||
-        coverage.categoryIds.some(
-          (id) => id.toString() === categoryId.toString()
-        );
+  if (!supplier) {
+    const error = new Error("Supplier not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
-      return categoryMatch;
-    });
-  });
-
-  return matchedSuppliers;
+  return supplier;
 }
 
 module.exports = {
@@ -507,10 +380,10 @@ module.exports = {
   getSupplierById,
   updateSupplier,
   deleteSupplier,
-
   addCoverage,
-  removeCoverage,
   replaceCoverage,
-
+  removeCoverage,
   findSuppliersForOrder,
+  recordSuccessfulSale,
+  updateSupplierScore,
 };
