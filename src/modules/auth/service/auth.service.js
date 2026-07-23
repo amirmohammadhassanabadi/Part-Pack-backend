@@ -115,7 +115,7 @@ async function logout(refreshToken) {
 
 async function devLogin(phone, code) {
   if (phone !== "09128498876") throw new Error("Phone number is wrong.");
-  if (code !== "1122") throw new Error("Invalid OTP code.");
+  if (code !== "112233") throw new Error("Invalid OTP code.");
 
   const authUser = await Auth.findOne({ phone, isActive: true });
   if (!authUser) throw new Error("Permission denied.");
