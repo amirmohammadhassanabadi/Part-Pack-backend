@@ -2,13 +2,6 @@ const mongoose = require("mongoose");
 
 const supplierSchema = new mongoose.Schema(
   {
-    code: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
-
     name: {
       type: String,
       required: true,
@@ -52,6 +45,10 @@ const supplierSchema = new mongoose.Schema(
           ref: "CarModel",
           default: [],
         },
+        allCategory: {
+          type: Boolean,
+          default: false,
+        },
         categoryIds: {
           type: [mongoose.Schema.Types.ObjectId],
           ref: "PartCategory",
@@ -84,7 +81,7 @@ const supplierSchema = new mongoose.Schema(
       index: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Supplier", supplierSchema);
