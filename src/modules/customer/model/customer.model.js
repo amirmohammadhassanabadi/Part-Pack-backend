@@ -50,6 +50,20 @@ const customerSchema = new mongoose.Schema(
         _id: false,
       },
     ],
+
+    orders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Order",
+      },
+    ],
+
+    invoices: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Invoice",
+      },
+    ],
   },
   { timestamps: true },
 );
