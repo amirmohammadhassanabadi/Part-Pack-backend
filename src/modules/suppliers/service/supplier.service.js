@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
-const Supplier = require("./supplier.model");
-const Brand = require("../brand/brand.model");
-const CarModel = require("../carModel/carModel.model");
-const Category = require("../category/category.model");
+const Supplier = require("../model/supplier.model");
+const Brand = require("../../vehicles/model/brand.model");
+const CarModel = require("../../vehicles/model/carModel.model");
+const Category = require("../../vehicles/model/partCategory.models");
 
 async function validateCoverageReferences({
   brandId,
