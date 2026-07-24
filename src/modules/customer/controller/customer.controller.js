@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const customerService = require("../services/customer.service");
+const customerService = require("../service/customer.service");
 
 function buildError(message, statusCode = 400) {
   const error = new Error(message);

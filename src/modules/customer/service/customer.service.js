@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-const Customer = require("../models/customer.model");
-const CarModel = require("../../carModel/carModel.model");
+const Customer = require("../model/customer.model");
+const CarModel = require("../../vehicles/model/carModel.model");
 
 // --- متدهای پایه (CRUD) ---
 
