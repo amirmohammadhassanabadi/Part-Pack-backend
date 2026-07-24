@@ -7,9 +7,10 @@ const errorHandler = require("./core/middlewares/errorHandler");
 
 // Modules Importing
 const authRouter = require("./modules/auth");
+const staffModule = require("./modules/staff");
+const supplierRouter = require("./modules/suppliers");
 const customerRouter = require("./modules/customer");
 const vehiclesRouter = require("./modules/vehicles");
-const supplierRouter = require("./modules/suppliers");
 const partsRouter = require("./modules/parts");
 // const { orderRouter } = require("./modules/orders");
 
@@ -33,11 +34,12 @@ app.get("/healthz", (req, res) => {
 });
 
 // Routers
-app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/staff", staffModule);
 app.use("/api/v1/suppliers", supplierRouter);
-app.use("/api/v1/parts", partsRouter);
 app.use("/api/v1/customers", customerRouter);
+app.use("/api/v1/vehicles", vehiclesRouter);
+app.use("/api/v1/parts", partsRouter);
 // app.use("/api/v1/orders", orderRouter);
 
 // فعال‌سازی مدیریت خطای مرکزی
