@@ -12,7 +12,7 @@ const supplierRouter = require("./modules/suppliers");
 const customerRouter = require("./modules/customer");
 const vehiclesRouter = require("./modules/vehicles");
 const partsRouter = require("./modules/parts");
-// const { orderRouter } = require("./modules/orders");
+const orderRouter = require("./modules/orders");
 
 // App
 const app = express();
@@ -40,7 +40,7 @@ app.use("/api/v1/suppliers", supplierRouter);
 app.use("/api/v1/customers", customerRouter);
 app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/parts", partsRouter);
-// app.use("/api/v1/orders", orderRouter);
+app.use("/api/v1/orders", orderRouter);
 
 // فعال‌سازی مدیریت خطای مرکزی
 app.use(errorHandler);
