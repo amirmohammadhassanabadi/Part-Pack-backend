@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./docs/openapi");
 
 // Middlewares
 const errorHandler = require("./core/middlewares/errorHandler");
@@ -22,6 +24,12 @@ app.use(express.json());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec)
+);
 
 // routes
 app.get("/", (req, res) => {
