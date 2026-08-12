@@ -35,21 +35,51 @@ const orderSchema = new mongoose.Schema(
           ref: "Part",
           required: true,
         },
+
+        carModelId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "CarModel",
+          required: true,
+        },
+
         categoryId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "PartCategory",
           required: true,
         },
+
         title: {
           type: String,
           required: true,
           trim: true,
         },
+
         qty: {
           type: Number,
           required: true,
           min: 1,
         },
+
+        availability: {
+          status: {
+            type: String,
+            enum: ["pending", "available", "unavailable"],
+            default: "pending",
+          },
+
+          description: {
+            type: String,
+            trim: true,
+            default: null,
+          },
+        },
+
+        unitPrice: {
+          type: Number,
+          min: 0,
+          default: null,
+        },
+
         _id: false,
       },
     ],
@@ -91,7 +121,7 @@ const orderSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Order", orderSchema);

@@ -18,7 +18,7 @@ const partsRouter = require("./modules/parts");
 const app = express();
 
 app.use(morgan("dev"));
-app.use(express.json()); // برای پارس کردن Body درخواست‌ها
+app.use(express.json());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
