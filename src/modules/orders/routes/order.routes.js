@@ -8,9 +8,44 @@ const {
 
 const router = express.Router();
 
-// ============================================================
-// Customer
-// ============================================================
+/**
+ * @openapi
+ * /orders:
+ *   post:
+ *     tags:
+ *       - Orders
+ *     summary: Create a new order
+ *     description: Creates a new order for the authenticated customer.
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/CreateOrderRequest"
+ *
+ *     responses:
+ *       201:
+ *         description: Order created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: "#/components/schemas/Order"
+ *
+ *       400:
+ *         description: Invalid order data.
+ *
+ *       401:
+ *         description: Authentication required.
+ */
 
 // Create order
 router.post(
@@ -35,10 +70,6 @@ router.get(
   authorize("customer"),
   orderController.getCustomerOrderById
 );
-
-// ============================================================
-// Operator
-// ============================================================
 
 // Get orders for operator dashboard
 router.get(
