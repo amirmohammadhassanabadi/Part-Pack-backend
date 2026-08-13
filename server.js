@@ -8,8 +8,8 @@ const PORT = process.env.PORT || 4000;
 
 async function startServer() {
   try {
-    await connectMongo()
-    await connectRedis()
+    // await connectMongo()
+    // await connectRedis()
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`)

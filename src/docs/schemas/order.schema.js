@@ -164,4 +164,62 @@
  *           minItems: 1
  *           items:
  *             $ref: "#/components/schemas/CreateOrderItem"
+ *
+ *
+ *     UpdateOrderItemPricingRequest:
+ *       type: object
+ *       required:
+ *         - availability
+ *       properties:
+ *         availability:
+ *           type: object
+ *           required:
+ *             - status
+ *           properties:
+ *             status:
+ *               type: string
+ *               enum:
+ *                 - available
+ *                 - unavailable
+ *               example: available
+ *
+ *             description:
+ *               type: string
+ *               nullable: true
+ *               example: null
+ *
+ *         unitPrice:
+ *           type: number
+ *           minimum: 0
+ *           nullable: true
+ *           example: 2500000
+ * 
+ *     Pagination:
+ *       type: object
+ *       required:
+ *         - page
+ *         - limit
+ *         - total
+ *         - pages
+ *       properties:
+ *         page:
+ *           type: integer
+ *           minimum: 1
+ *           example: 1
+ *
+ *         limit:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 20
+ *
+ *         total:
+ *           type: integer
+ *           minimum: 0
+ *           example: 45
+ *
+ *         pages:
+ *           type: integer
+ *           minimum: 0
+ *           example: 3
  */
