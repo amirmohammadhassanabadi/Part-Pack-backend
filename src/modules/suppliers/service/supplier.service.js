@@ -27,7 +27,7 @@ async function validateCoverageReferences({
   if (!allModels) {
     if (!Array.isArray(carModelIds) || carModelIds.length === 0) {
       const error = new Error(
-        "carModelIds is required when allModels is false"
+        "carModelIds is required when allModels is false",
       );
       error.statusCode = 400;
       throw error;
@@ -48,7 +48,7 @@ async function validateCoverageReferences({
 
     if (foundModelsCount !== carModelIds.length) {
       const error = new Error(
-        "One or more carModelIds are invalid or do not belong to the selected brand"
+        "One or more carModelIds are invalid or do not belong to the selected brand",
       );
       error.statusCode = 400;
       throw error;
@@ -58,7 +58,7 @@ async function validateCoverageReferences({
   if (!allCategory) {
     if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
       const error = new Error(
-        "categoryIds is required when allCategory is false"
+        "categoryIds is required when allCategory is false",
       );
       error.statusCode = 400;
       throw error;
@@ -101,7 +101,6 @@ async function createSupplier(data) {
 
 async function getSuppliers(filters = {}) {
   const suppliers = await Supplier.find(filters)
-    .populate("user", "name email phone")
     .populate("coverage.brandId", "name")
     .populate("coverage.carModelIds", "name")
     .populate("coverage.categoryIds", "name");
@@ -117,7 +116,6 @@ async function getSupplierById(id) {
   }
 
   const supplier = await Supplier.findById(id)
-    .populate("user", "name email phone")
     .populate("coverage.brandId", "name")
     .populate("coverage.carModelIds", "name")
     .populate("coverage.categoryIds", "name");
@@ -189,7 +187,7 @@ async function addCoverage(supplierId, payload) {
   }
 
   const alreadyExists = supplier.coverage.some(
-    (item) => item.brandId.toString() === coverageInput.brandId.toString()
+    (item) => item.brandId.toString() === coverageInput.brandId.toString(),
   );
 
   if (alreadyExists) {
@@ -225,7 +223,7 @@ async function replaceCoverage(supplierId, brandId, payload) {
   }
 
   const coverageIndex = supplier.coverage.findIndex(
-    (item) => item.brandId.toString() === brandId.toString()
+    (item) => item.brandId.toString() === brandId.toString(),
   );
 
   if (coverageIndex === -1) {
@@ -270,7 +268,7 @@ async function removeCoverage(supplierId, brandId) {
   const initialLength = supplier.coverage.length;
 
   supplier.coverage = supplier.coverage.filter(
-    (item) => item.brandId.toString() !== brandId.toString()
+    (item) => item.brandId.toString() !== brandId.toString(),
   );
 
   if (supplier.coverage.length === initialLength) {
@@ -286,9 +284,7 @@ async function removeCoverage(supplierId, brandId) {
 
 async function findSuppliersForOrder({ brandId, carModelId, categoryId }) {
   if (!brandId || !carModelId || !categoryId) {
-    const error = new Error(
-      "brandId, carModelId and categoryId are required"
-    );
+    const error = new Error("brandId, carModelId and categoryId are required");
     error.statusCode = 400;
     throw error;
   }
@@ -319,7 +315,6 @@ async function findSuppliersForOrder({ brandId, carModelId, categoryId }) {
       },
     },
   })
-    .populate("user", "name email phone")
     .populate("coverage.brandId", "name");
 
   return suppliers;
@@ -334,8 +329,8 @@ async function recordSuccessfulSale(supplierId, amount = 0) {
 
   const update = {
     $inc: {
-      totalSalesCount: 1,
-      totalRevenue: Number(amount) || 0,
+      "stats.totalPartsSold": 1,
+      "stats.totalRevenue": Number(amount) || 0,
     },
   };
 
@@ -361,8 +356,8 @@ async function updateSupplierScore(supplierId, score) {
 
   const supplier = await Supplier.findByIdAndUpdate(
     supplierId,
-    { score },
-    { new: true, runValidators: true }
+    { "stats.score": score },
+    { new: true, runValidators: true },
   );
 
   if (!supplier) {

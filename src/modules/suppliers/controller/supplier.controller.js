@@ -1,4 +1,4 @@
-const supplierService = require("../controller/supplier.controller");
+const supplierService = require("../service/supplier.service");
 
 async function createSupplier(req, res, next) {
   try {
