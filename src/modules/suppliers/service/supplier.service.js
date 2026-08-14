@@ -157,7 +157,11 @@ async function deleteSupplier(id) {
     throw error;
   }
 
-  const supplier = await Supplier.findByIdAndDelete(id);
+  const supplier = await Supplier.findByIdAndUpdate(
+    id,
+    { isActive: false },
+    { new: true }
+  );
 
   if (!supplier) {
     const error = new Error("Supplier not found");
