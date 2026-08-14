@@ -1,15 +1,81 @@
 const express = require("express");
 const customerController = require("../controller/customer.controller");
 
+const {
+  authenticate,
+  authorize,
+  authorizeCustomerOwnership,
+} = require("../../auth/middleware/auth.middleware");
+
 const router = express.Router();
 
-router.post("/", customerController.createCustomer);
-router.get("/", customerController.getAllCustomers);
-router.get("/:id", customerController.getCustomerById);
 
-router.post("/:id/addresses", customerController.addAddressToCustomer);
-router.post("/:id/car-models", customerController.addCarToCustomer);
-router.post("/:id/orders", customerController.addOrderToCustomer);
-router.post("/:id/invoices", customerController.addInvoiceToCustomer);
+// ============================================================
+// Public
+// ============================================================
+
+// Customer registration
+router.post(
+  "/",
+  customerController.createCustomer
+);
+
+
+// ============================================================
+// Admin + Operator
+// ============================================================
+
+// Get all customers
+router.get(
+  "/",
+  authenticate,
+  authorize("admin", "operator"),
+  customerController.getAllCustomers
+);
+
+
+// ============================================================
+// Admin + Operator + Customer
+// ============================================================
+
+// Get customer by ID
+router.get(
+  "/:id",
+  authenticate,
+  authorize("admin", "operator", "customer"),
+  authorizeCustomerOwnership,
+  customerController.getCustomerById
+);
+
+
+// Add address
+router.post(
+  "/:id/addresses",
+  authenticate,
+  authorize("admin", "operator", "customer"),
+  authorizeCustomerOwnership,
+  customerController.addAddressToCustomer
+);
+
+
+// Add car
+router.post(
+  "/:id/car-models",
+  authenticate,
+  authorize("admin", "operator", "customer"),
+  authorizeCustomerOwnership,
+  customerController.addCarToCustomer
+);
+
+
+// ============================================================
+// Internal operations
+// ============================================================
+
+// addOrderToCustomer()
+// addInvoiceToCustomer()
+//
+// These are not exposed as HTTP routes.
+
 
 module.exports = router;
