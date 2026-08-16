@@ -35,6 +35,11 @@ const invoiceSchema = new mongoose.Schema(
           ref: "Part",
           required: true,
         },
+        carModelId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "CarModel",
+          required: true,
+        },
         title: {
           type: String,
           required: true,
@@ -93,7 +98,7 @@ const invoiceSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Invoice", invoiceSchema);
