@@ -4,6 +4,7 @@ const Order = require("../model/order.model");
 const Part = require("../../parts/model/part.model");
 const CarModel = require("../../vehicles/model/carModel.model");
 const Customer = require("../../customer/model/customer.model");
+const { createInvoiceFromOrder } = require("../../invoice/service/invoice.service");
 
 
 // ============================================================
@@ -643,16 +644,11 @@ async function confirmOrder(orderId) {
   // Re-check all items before confirmation.
   for (const item of order.items) {
     if (item.availability.status === "pending") {
-      throw new Error(
-        `Item "${item.title}" is still pending`
-      );
+      throw new Error(`Item "${item.title}" is still pending`);
     }
 
     if (item.availability.status === "available") {
-      if (
-        item.unitPrice === null ||
-        item.unitPrice === undefined
-      ) {
+      if (item.unitPrice === null || item.unitPrice === undefined) {
         throw new Error(
           `Available item "${item.title}" has no unit price`
         );
@@ -677,11 +673,8 @@ async function confirmOrder(orderId) {
     }
   }
 
-  // The customer cannot confirm an order
-  // where every requested item is unavailable.
   const availableItems = order.items.filter(
-    (item) =>
-      item.availability.status === "available"
+    (item) => item.availability.status === "available"
   );
 
   if (availableItems.length === 0) {
@@ -690,11 +683,17 @@ async function confirmOrder(orderId) {
     );
   }
 
+  // Confirm the order
   order.status = "confirmed";
-
   await order.save();
 
-  return order;
+  // Create invoice
+  const invoice = await createInvoiceFromOrder(order._id);
+
+  return {
+    order,
+    invoice,
+  };
 }
 
 

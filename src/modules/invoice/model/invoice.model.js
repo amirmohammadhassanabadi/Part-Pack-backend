@@ -53,11 +53,9 @@ const invoiceSchema = new mongoose.Schema(
         supplierId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Supplier",
-          required: true,
         },
         supplierName: {
           type: String,
-          required: true,
           trim: true,
         },
         partNumber: {
