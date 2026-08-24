@@ -5,6 +5,16 @@ const {
 const {
   OTLPTraceExporter,
 } = require("@opentelemetry/exporter-trace-otlp-proto");
+const {
+  resourceFromAttributes,
+} = require("@opentelemetry/resources");
+const {
+  ATTR_SERVICE_NAME,
+} = require("@opentelemetry/semantic-conventions");
+
+const resource = resourceFromAttributes({
+  [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "part-pack-backend",
+});
 
 const traceExporter = new OTLPTraceExporter({
   url:
@@ -13,6 +23,7 @@ const traceExporter = new OTLPTraceExporter({
 });
 
 const sdk = new NodeSDK({
+  resource,
   traceExporter,
   instrumentations: [getNodeAutoInstrumentations()],
 });
