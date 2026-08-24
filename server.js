@@ -1,4 +1,5 @@
 require("dotenv").config();
+require("./instrumentation");
 
 const app = require("./src/app");
 const connectMongo = require("./src/core/database/mongo");
