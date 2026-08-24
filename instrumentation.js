@@ -1,3 +1,6 @@
+const { diag, DiagConsoleLogger, DiagLogLevel } = require("@opentelemetry/api");
+
+diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
 const { NodeSDK } = require("@opentelemetry/sdk-node");
 const {
   getNodeAutoInstrumentations,
