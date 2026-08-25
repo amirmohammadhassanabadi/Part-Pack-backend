@@ -18,7 +18,9 @@ const resource = resourceFromAttributes({
 });
 
 const traceExporter = new OTLPTraceExporter({
-  url: "http://jaeger:4318/v1/traces",
+  url:
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
+    "http://localhost:4318/v1/traces",
 });
 
 const sdk = new NodeSDK({
@@ -33,6 +35,8 @@ process.on("SIGTERM", () => {
   sdk
     .shutdown()
     .then(() => console.log("OpenTelemetry terminated"))
-    .catch((error) => console.error("Error terminating OpenTelemetry:", error))
+    .catch((error) =>
+      console.error("Error terminating OpenTelemetry:", error)
+    )
     .finally(() => process.exit(0));
 });
