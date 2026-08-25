@@ -1,6 +1,3 @@
-const { diag, DiagConsoleLogger, DiagLogLevel } = require("@opentelemetry/api");
-
-diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
 const { NodeSDK } = require("@opentelemetry/sdk-node");
 const {
   getNodeAutoInstrumentations,
@@ -16,13 +13,12 @@ const {
 } = require("@opentelemetry/semantic-conventions");
 
 const resource = resourceFromAttributes({
-  [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "part-pack-backend",
+  [ATTR_SERVICE_NAME]:
+    process.env.OTEL_SERVICE_NAME || "part-pack-backend",
 });
 
 const traceExporter = new OTLPTraceExporter({
-  url:
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
-    "http://localhost:4318/v1/traces",
+  url: "http://jaeger:4318/v1/traces",
 });
 
 const sdk = new NodeSDK({
@@ -37,6 +33,6 @@ process.on("SIGTERM", () => {
   sdk
     .shutdown()
     .then(() => console.log("OpenTelemetry terminated"))
-    .catch((error) => console.error("Error terminating OpenTelemetry", error))
+    .catch((error) => console.error("Error terminating OpenTelemetry:", error))
     .finally(() => process.exit(0));
 });
