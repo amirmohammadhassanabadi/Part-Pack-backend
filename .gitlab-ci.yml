@@ -1,11 +1,11 @@
 stages:
-- build
-- deploy
+  - build
+  - deploy
 
 workflow:
   rules:
-  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/ || $CI_COMMIT_MESSAGE =~ /\[dev\]/'
-  - when: never
+    - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/ || $CI_COMMIT_MESSAGE =~ /\[dev\]/'
+    - when: never
 
 variables:
   IMAGE_NAME: "registry.part-pack.ir/part-pack/backend"
@@ -18,42 +18,42 @@ variables:
 
 build_dev:
   stage: build
-  tags: 
-  - part-pack-backend
+  tags:
+    - part-pack-backend
   rules:
-  - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
+    - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
   script:
-  - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
-  - docker images | grep part-pack/backend
+    - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
+    - docker images | grep part-pack/backend
 
 build_prod:
   stage: build
   tags:
-  - part-pack-backend
+    - part-pack-backend
   rules:
-  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
+    - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
   script:
-  - docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+    - docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
 
 deploy_dev:
   stage: deploy
   rules:
-  - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/' 
+    - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
   tags:
-  - part-pack-backend
+    - part-pack-backend
   needs:
-  - build_dev
+    - build_dev
   script:
-  - docker compose -f /srv/part-pack-dev/docker-compose.yml up -d --no-deps --force-recreate backend
+    - docker compose -f /srv/part-pack-dev/docker-compose.yml up -d --no-deps --force-recreate backend
 
 deploy_prod:
   stage: deploy
   tags:
-  - part-pack-backend
+    - part-pack-backend
   rules:
-  - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
+    - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
   needs:
-  - build_prod
+    - build_prod
   script:
-  - 'chmod +x scripts/trigger-infra-deploy.sh'
-  - './scripts/trigger-infra-deploy.sh'
+    - "chmod +x scripts/trigger-infra-deploy.sh"
+    - "./scripts/trigger-infra-deploy.sh"
