@@ -10,8 +10,8 @@ workflow:
 variables:
   IMAGE_NAME: "registry.part-pack.ir/part-pack/backend"
   IMAGE_TAG: "production"
-  INFRA_PROJECT_ID: "8"
-  INFRA_REF: "main"
+  DEPLOYMENT_PROJECT_ID: "8"
+  DEPLOYMENT_REF: "main"
   DEPLOY_SERVICE: "backend"
   GITLAB_API_URL: "https://gitlab.part-pack.ir/api/v4"
   IMAGE_TAG_DEV: "development"
@@ -55,5 +55,5 @@ deploy_prod:
   needs:
     - build_prod
   script:
-    - "chmod +x scripts/trigger-infra-deploy.sh"
-    - "./scripts/trigger-infra-deploy.sh"
+    - "chmod +x scripts/trigger-deployment.sh"
+    - "./scripts/trigger-deployment.sh"
