@@ -24,7 +24,6 @@ build_dev:
     - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
   script:
     - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
-    - docker images | grep part-pack/backend
 
 build_prod:
   stage: build
