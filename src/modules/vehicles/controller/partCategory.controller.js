@@ -2,8 +2,40 @@ const partCategoryService = require("../service/partCategory.service");
 
 async function createPartCategory(req, res, next) {
   try {
-    const partCategory = await partCategoryService.createPartCategory(req.body);
-    res.status(201).json({ success: true, data: partCategory });
+    const { name, logoUrl, parentId } = req.body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      const error = new Error("Name is required");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (logoUrl !== undefined && typeof logoUrl !== "string") {
+      const error = new Error("Logo URL must be a string");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (
+      parentId !== undefined &&
+      parentId !== null &&
+      !mongoose.Types.ObjectId.isValid(parentId)
+    ) {
+      const error = new Error("Invalid parent category ID");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const partCategory = await partCategoryService.createPartCategory({
+      name: name.trim(),
+      logoUrl: logoUrl?.trim(),
+      parentId,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: partCategory,
+    });
   } catch (error) {
     next(error);
   }

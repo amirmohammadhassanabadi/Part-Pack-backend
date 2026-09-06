@@ -1,21 +1,30 @@
 const PartCategory = require("../model/partCategory.models");
 const slugify = require("slugify");
 
-async function createPartCategory({ name, parentId = null }) {
+async function createPartCategory({ name, logoUrl, parentId = null }) {
   const slug = slugify(name, { lower: true, strict: true });
 
   const exists = await PartCategory.findOne({ slug });
-  if (exists) throw new Error("PartCategory already exists");
+  if (exists) {
+    throw new Error("PartCategory already exists");
+  }
 
   if (parentId) {
     const parent = await PartCategory.findById(parentId);
-    if (!parent) throw new Error("Parent category not found");
-    if (!parent.isActive) throw new Error("Parent category is not active");
+
+    if (!parent) {
+      throw new Error("Parent category not found");
+    }
+
+    if (!parent.isActive) {
+      throw new Error("Parent category is not active");
+    }
   }
 
   const partCategory = await PartCategory.create({
     name,
     slug,
+    logoUrl,
     parentId,
   });
 

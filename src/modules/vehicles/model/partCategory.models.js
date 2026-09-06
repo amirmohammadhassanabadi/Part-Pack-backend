@@ -14,6 +14,10 @@ const partCategorySchema = new mongoose.Schema(
       index: true,
     },
 
+    logoUrl: {
+      type: String,
+    },
+
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PartCategory",
