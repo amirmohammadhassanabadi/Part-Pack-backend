@@ -47,16 +47,21 @@ async function getPartCategoryById(id) {
 }
 
 async function updatePartCategory(id, data) {
-  const allowedFields = ["name", "parentId", "isActive"];
+  const allowedFields = ["name", "logoUrl", "parentId", "isActive"];
+
   const receivedFields = Object.keys(data);
+
   const invalidFields = receivedFields.filter(
     (f) => !allowedFields.includes(f),
   );
 
-  if (invalidFields.length > 0)
+  if (invalidFields.length > 0) {
     throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
-  if (receivedFields.length === 0)
+  }
+
+  if (receivedFields.length === 0) {
     throw new Error("No data provided for update");
+  }
 
   if (data.name) {
     data.slug = slugify(data.name, { lower: true, strict: true });
@@ -65,23 +70,36 @@ async function updatePartCategory(id, data) {
       slug: data.slug,
       _id: { $ne: id },
     });
-    if (exists) throw new Error("PartCategory with this name already exists");
+
+    if (exists) {
+      throw new Error("PartCategory with this name already exists");
+    }
   }
 
   if (data.parentId) {
-    if (data.parentId === id)
+    if (data.parentId === id) {
       throw new Error("Category cannot be its own parent");
+    }
 
     const parent = await PartCategory.findById(data.parentId);
-    if (!parent) throw new Error("Parent category not found");
-    if (!parent.isActive) throw new Error("Parent category is not active");
+
+    if (!parent) {
+      throw new Error("Parent category not found");
+    }
+
+    if (!parent.isActive) {
+      throw new Error("Parent category is not active");
+    }
   }
 
   const updated = await PartCategory.findByIdAndUpdate(id, data, {
     new: true,
     runValidators: true,
   });
-  if (!updated) throw new Error("PartCategory not found");
+
+  if (!updated) {
+    throw new Error("PartCategory not found");
+  }
 
   return updated;
 }

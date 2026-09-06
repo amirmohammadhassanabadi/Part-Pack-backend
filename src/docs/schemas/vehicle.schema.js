@@ -209,6 +209,12 @@
  *         slug:
  *           type: string
  *           example: engine
+ * 
+ *         logoUrl:
+ *           type: string
+ *           nullable: true
+ *           example: /public/images/parts/...
+ *           description: The path of the log image.
  *
  *         parentId:
  *           type: string
@@ -263,6 +269,12 @@
  *           nullable: true
  *           description: MongoDB ObjectId of the parent category.
  *           example: 665a7b8c9d0e1f2a3b4c5d6e
+ * 
+ *         logoUrl:
+ *           type: string
+ *           nullable: true
+ *           example: /public/images/parts/...
+ *           description: The path of the log image.
  *
  *         isActive:
  *           type: boolean
