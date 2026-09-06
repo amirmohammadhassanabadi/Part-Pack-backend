@@ -19,9 +19,16 @@ async function createPart({
   images = [],
   description,
   compatibility = [],
+  minPrice,
+  maxPrice,
 }) {
   const exists = await Part.findOne({ name, categoryId });
-  if (exists) throw new Error("Part already exists in this category");
+
+  if (exists) {
+    throw new Error("Part already exists in this category");
+  }
+
+  const avg = (minPrice + maxPrice) / 2;
 
   const part = await Part.create({
     name,
@@ -29,6 +36,11 @@ async function createPart({
     images,
     description,
     compatibility,
+    priceStats: {
+      min: minPrice,
+      max: maxPrice,
+      avg,
+    },
   });
 
   return part;
@@ -89,36 +101,80 @@ async function updatePart(id, data) {
     "images",
     "description",
     "compatibility",
+    "minPrice",
+    "maxPrice",
     "isActive",
   ];
+
   const receivedFields = Object.keys(data);
+
   const invalidFields = receivedFields.filter(
-    (f) => !allowedFields.includes(f),
+    (field) => !allowedFields.includes(field),
   );
 
-  if (invalidFields.length > 0)
+  if (invalidFields.length > 0) {
     throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
-  if (receivedFields.length === 0)
+  }
+
+  if (receivedFields.length === 0) {
     throw new Error("No data provided for update");
+  }
+
+  const existingPart = await Part.findById(id);
+
+  if (!existingPart) {
+    throw new Error("Part not found");
+  }
 
   if (data.name || data.categoryId) {
-    const checkName = data.name || (await Part.findById(id))?.name;
-    const checkCategory =
-      data.categoryId || (await Part.findById(id))?.categoryId;
+    const checkName = data.name || existingPart.name;
+    const checkCategory = data.categoryId || existingPart.categoryId;
 
     const exists = await Part.findOne({
       name: checkName,
       categoryId: checkCategory,
       _id: { $ne: id },
     });
-    if (exists) throw new Error("Part already exists in this category");
+
+    if (exists) {
+      throw new Error("Part already exists in this category");
+    }
+  }
+
+  if (
+    data.minPrice !== undefined ||
+    data.maxPrice !== undefined
+  ) {
+    const minPrice =
+      data.minPrice !== undefined
+        ? data.minPrice
+        : existingPart.priceStats.min;
+
+    const maxPrice =
+      data.maxPrice !== undefined
+        ? data.maxPrice
+        : existingPart.priceStats.max;
+
+    if (minPrice > maxPrice) {
+      throw new Error("minPrice cannot be greater than maxPrice");
+    }
+
+    data.priceStats = {
+      ...existingPart.priceStats.toObject(),
+      min: minPrice,
+      max: maxPrice,
+      avg: (minPrice + maxPrice) / 2,
+      computedAt: new Date(),
+    };
+
+    delete data.minPrice;
+    delete data.maxPrice;
   }
 
   const updated = await Part.findByIdAndUpdate(id, data, {
     new: true,
     runValidators: true,
   });
-  if (!updated) throw new Error("Part not found");
 
   return updated;
 }

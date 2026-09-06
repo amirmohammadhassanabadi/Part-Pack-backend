@@ -118,6 +118,16 @@
  *           description: MongoDB ObjectIds of compatible car models.
  *           example:
  *             - 665a7b8c9d0e1f2a3b4c5d6e
+ * 
+ *         minPrice:
+ *           type: number
+ *           nullable: true
+ *           example: 1000000
+ *
+ *         maxPrice:
+ *           type: number
+ *           nullable: true
+ *           example: 1500000
  *
  *
  *     UpdatePartRequest:
@@ -154,6 +164,16 @@
  *         isActive:
  *           type: boolean
  *           example: true
+ * 
+ *         minPrice:
+ *           type: number
+ *           nullable: true
+ *           example: 1000000
+ *
+ *         maxPrice:
+ *           type: number
+ *           nullable: true
+ *           example: 1500000
  *
  *
  *     CompatibilityRequest:
