@@ -49,20 +49,28 @@ async function getPartCategoryById(id) {
 async function updatePartCategory(id, data) {
   const allowedFields = ["name", "parentId", "isActive"];
   const receivedFields = Object.keys(data);
-  const invalidFields = receivedFields.filter((f) => !allowedFields.includes(f));
+  const invalidFields = receivedFields.filter(
+    (f) => !allowedFields.includes(f),
+  );
 
-  if (invalidFields.length > 0) throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
-  if (receivedFields.length === 0) throw new Error("No data provided for update");
+  if (invalidFields.length > 0)
+    throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
+  if (receivedFields.length === 0)
+    throw new Error("No data provided for update");
 
   if (data.name) {
     data.slug = slugify(data.name, { lower: true, strict: true });
 
-    const exists = await PartCategory.findOne({ slug: data.slug, _id: { $ne: id } });
+    const exists = await PartCategory.findOne({
+      slug: data.slug,
+      _id: { $ne: id },
+    });
     if (exists) throw new Error("PartCategory with this name already exists");
   }
 
   if (data.parentId) {
-    if (data.parentId === id) throw new Error("Category cannot be its own parent");
+    if (data.parentId === id)
+      throw new Error("Category cannot be its own parent");
 
     const parent = await PartCategory.findById(data.parentId);
     if (!parent) throw new Error("Parent category not found");
@@ -80,12 +88,13 @@ async function updatePartCategory(id, data) {
 
 async function deletePartCategory(id) {
   const hasChildren = await PartCategory.findOne({ parentId: id });
-  if (hasChildren) throw new Error("Cannot deactivate a category that has subcategories");
+  if (hasChildren)
+    throw new Error("Cannot deactivate a category that has subcategories");
 
   const deleted = await PartCategory.findByIdAndUpdate(
     id,
     { isActive: false },
-    { new: true }
+    { new: true },
   );
   if (!deleted) throw new Error("PartCategory not found");
   return deleted;
