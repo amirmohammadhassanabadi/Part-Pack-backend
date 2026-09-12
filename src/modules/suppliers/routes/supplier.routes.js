@@ -17,10 +17,10 @@ router.get(
   supplierController.getSuppliers,
 );
 router.get(
-  "/matching",
+  "/matching/order-item",
   authenticate,
   authorize("admin", "operator"),
-  supplierController.getMatchingSuppliers,
+  supplierController.getMatchingSuppliersForOrderItem,
 );
 router.get(
   "/:id",

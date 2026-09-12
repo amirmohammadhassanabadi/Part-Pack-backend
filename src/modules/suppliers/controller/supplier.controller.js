@@ -82,9 +82,9 @@ async function removeCoverage(req, res, next) {
   }
 }
 
-async function getMatchingSuppliers(req, res, next) {
+async function getMatchingSuppliersForOrderItem(req, res, next) {
   try {
-    const suppliers = await supplierService.findSuppliersForOrder({
+    const suppliers = await supplierService.findSuppliersForOrderItem({
       brandId: req.query.brandId,
       carModelId: req.query.carModelId,
       categoryId: req.query.categoryId,
@@ -105,5 +105,5 @@ module.exports = {
   addCoverage,
   replaceCoverage,
   removeCoverage,
-  getMatchingSuppliers,
+  getMatchingSuppliersForOrderItem,
 };

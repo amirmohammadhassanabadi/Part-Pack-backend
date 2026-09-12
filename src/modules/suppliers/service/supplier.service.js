@@ -286,7 +286,7 @@ async function removeCoverage(supplierId, brandId) {
   return supplier;
 }
 
-async function findSuppliersForOrder({ brandId, carModelId, categoryId }) {
+async function findSuppliersForOrderItem({ brandId, carModelId, categoryId }) {
   if (!brandId || !carModelId || !categoryId) {
     const error = new Error("brandId, carModelId and categoryId are required");
     error.statusCode = 400;
@@ -382,7 +382,7 @@ module.exports = {
   addCoverage,
   replaceCoverage,
   removeCoverage,
-  findSuppliersForOrder,
+  findSuppliersForOrderItem,
   recordSuccessfulSale,
   updateSupplierScore,
 };

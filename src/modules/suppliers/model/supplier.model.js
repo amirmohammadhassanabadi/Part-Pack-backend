@@ -54,7 +54,7 @@ const supplierSchema = new mongoose.Schema(
         categoryIds: [
           {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Category",
+            ref: "PartCategory",
           },
         ],
       },

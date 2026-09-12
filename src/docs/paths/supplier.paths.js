@@ -58,7 +58,7 @@
 
 /**
  * @openapi
- * /suppliers/matching:
+ * /suppliers/matching/order-item:
  *   get:
  *     summary: Find matching suppliers
  *     description: Returns active suppliers that cover the specified brand, car model, and part category.
