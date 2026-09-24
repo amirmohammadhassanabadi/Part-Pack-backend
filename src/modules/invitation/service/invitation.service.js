@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const Invitation = require("../model/invitation.model");
 const Order = require("../../order/model/order.model");
 const Supplier = require("../../supplier/model/supplier.model");
+const supplierService = require("../../supplier/service/supplier.service");
 
 async function createInvitation({ orderId, supplierId, partIds }) {
   if (!mongoose.isValidObjectId(orderId)) {
@@ -106,6 +107,47 @@ async function createInvitation({ orderId, supplierId, partIds }) {
   };
 }
 
+async function findSuppliersForOrder(orderId) {
+  if (!mongoose.isValidObjectId(orderId)) {
+    throw new Error("Invalid order ID");
+  }
+
+  const order = await Order.findById(orderId).populate({
+    path: "items.carModelId",
+    select: "brand",
+  });
+
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  const suppliersById = new Map();
+
+  for (const item of order.items) {
+    const suppliers = await supplierService.findSuppliersForOrderItem({
+      brandId: item.carModelId.brand,
+      carModelId: item.carModelId._id,
+      categoryId: item.categoryId,
+    });
+
+    for (const supplier of suppliers) {
+      const supplierId = supplier._id.toString();
+
+      if (!suppliersById.has(supplierId)) {
+        suppliersById.set(supplierId, {
+          supplierId: supplier._id,
+          partIds: [],
+        });
+      }
+
+      suppliersById.get(supplierId).partIds.push(item.partId);
+    }
+  }
+
+  return [...suppliersById.values()];
+}
+
 module.exports = {
   createInvitation,
+  findSuppliersForOrder
 };
