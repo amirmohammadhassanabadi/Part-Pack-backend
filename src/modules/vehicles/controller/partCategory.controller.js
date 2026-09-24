@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const partCategoryService = require("../service/partCategory.service");
 
 async function createPartCategory(req, res, next) {

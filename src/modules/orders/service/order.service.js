@@ -183,7 +183,7 @@ async function createOrder(customerId, items) {
 
     customer: {
       customerId: customer._id,
-      name: customer.name,
+      name: customer.fullName,
       phone: customer.phone,
     },
 

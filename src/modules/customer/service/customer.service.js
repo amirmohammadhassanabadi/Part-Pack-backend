@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Customer = require("../model/customer.model");
 const CarModel = require("../../vehicles/model/carModel.model");
+const Auth = require("../../auth/model/auth.model");
 
 // --- متدهای پایه (CRUD) ---
 
@@ -11,7 +12,29 @@ async function createCustomer(data) {
     error.statusCode = 409;
     throw error;
   }
-  return await Customer.create(data);
+  const existingAuth = await Auth.findOne({ phone: data.phone });
+  if (existingAuth) {
+    const error = new Error("An account with this phone number already exists.");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const customer = await Customer.create(data);
+
+  try {
+    await Auth.create({
+      phone: customer.phone,
+      role: "customer",
+      refModel: "Customer",
+      refId: customer._id,
+      isActive: customer.isActive,
+    });
+  } catch (error) {
+    await Customer.deleteOne({ _id: customer._id });
+    throw error;
+  }
+
+  return customer;
 }
 
 async function getAllCustomers(filters = {}) {
