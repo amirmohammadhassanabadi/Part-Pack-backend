@@ -616,14 +616,94 @@ async function submitQuote(orderId) {
 // Operator - Confirm order
 // ============================================================
 
+function validateFinalOrderItems(order) {
+  for (const item of order.items) {
+    if (item.availability.status === "pending") {
+      throw new Error(`Item "${item.title}" is still pending`);
+    }
+
+    if (item.availability.status === "available") {
+      const selectedOffer = item.selectedOffer;
+
+      if (!selectedOffer) {
+        throw new Error(
+          `Available item "${item.title}" has no selected supplier offer`,
+        );
+      }
+
+      if (!isValidObjectId(selectedOffer.invitationId) ||
+        !isValidObjectId(selectedOffer.supplierId) ||
+        !isValidObjectId(selectedOffer.offerId)) {
+        throw new Error(
+          `Selected offer for item "${item.title}" is incomplete`,
+        );
+      }
+
+      if (
+        !Number.isInteger(selectedOffer.selectedQuantity) ||
+        selectedOffer.selectedQuantity < 1 ||
+        selectedOffer.selectedQuantity > item.qty
+      ) {
+        throw new Error(
+          `Selected quantity for item "${item.title}" is invalid`,
+        );
+      }
+
+      if (
+        typeof selectedOffer.unitPrice !== "number" ||
+        !Number.isFinite(selectedOffer.unitPrice) ||
+        selectedOffer.unitPrice < 0 ||
+        item.unitPrice !== selectedOffer.unitPrice
+      ) {
+        throw new Error(
+          `Selected price for item "${item.title}" is invalid`,
+        );
+      }
+    }
+
+    if (item.availability.status === "unavailable") {
+      if (
+        !item.availability.description ||
+        !item.availability.description.trim()
+      ) {
+        throw new Error(
+          `Unavailable item "${item.title}" has no description`,
+        );
+      }
+
+      if (item.unitPrice !== null && item.unitPrice !== undefined) {
+        throw new Error(
+          `Unavailable item "${item.title}" cannot have a unit price`,
+        );
+      }
+
+      if (item.selectedOffer) {
+        throw new Error(
+          `Unavailable item "${item.title}" cannot have a selected offer`,
+        );
+      }
+    }
+  }
+
+  const availableItems = order.items.filter(
+    (item) => item.availability.status === "available",
+  );
+
+  if (availableItems.length === 0) {
+    throw new Error(
+      "Order cannot be confirmed because no items are available",
+    );
+  }
+}
+
 /**
  * Customer has accepted the quotation.
  *
  * Move:
  *
- * quoted -> confirmed
+ * offers_ready -> confirmed
  *
- * The Invoice module will create the invoice
+ * The Invoice module creates the pending invoice
  * after this operation.
  */
 async function confirmOrder(orderId) {
@@ -643,47 +723,11 @@ async function confirmOrder(orderId) {
     );
   }
 
-  // Re-check all items before confirmation.
-  for (const item of order.items) {
-    if (item.availability.status === "pending") {
-      throw new Error(`Item "${item.title}" is still pending`);
-    }
-
-    if (item.availability.status === "available") {
-      if (item.unitPrice === null || item.unitPrice === undefined) {
-        throw new Error(
-          `Available item "${item.title}" has no unit price`
-        );
-      }
-    }
-
-    if (item.availability.status === "unavailable") {
-      if (
-        !item.availability.description ||
-        !item.availability.description.trim()
-      ) {
-        throw new Error(
-          `Unavailable item "${item.title}" has no description`
-        );
-      }
-
-      if (item.unitPrice !== null) {
-        throw new Error(
-          `Unavailable item "${item.title}" cannot have a unit price`
-        );
-      }
-    }
+  if (order.invoiceId) {
+    throw new Error("Order already has an invoice");
   }
 
-  const availableItems = order.items.filter(
-    (item) => item.availability.status === "available"
-  );
-
-  if (availableItems.length === 0) {
-    throw new Error(
-      "Order cannot be confirmed because no items are available"
-    );
-  }
+  validateFinalOrderItems(order);
 
   // Confirm the order
   order.status = "confirmed";

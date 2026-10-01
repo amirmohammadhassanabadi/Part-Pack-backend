@@ -405,7 +405,8 @@
  *     summary: Confirm an order
  *     description: >
  *       Confirms an order after the customer has accepted the quotation.
- *       The order status changes from quoted to confirmed.
+ *       The order status changes from offers_ready to confirmed and a pending
+ *       invoice is created with all available and unavailable lines.
  *     security:
  *       - bearerAuth: []
  *
@@ -453,7 +454,8 @@
  *     summary: Submit an order quotation
  *     description: >
  *       Submits the quotation after the operator has processed every
- *       order item. The order status changes from quoting to quoted.
+ *       order item. This legacy endpoint changes the order status to
+ *       offers_ready; the recommended flow is to use select-offers.
  *     security:
  *       - bearerAuth: []
  *
