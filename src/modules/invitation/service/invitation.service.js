@@ -430,6 +430,105 @@ async function deleteOffer(rawToken, itemKey, offerId) {
   return toSupplierView(invitation);
 }
 
+async function getOperatorOrderInvitations(orderId) {
+  assertObjectId(orderId, "order ID");
+  await expireDueInvitations();
+
+  const order = await Order.findById(orderId).select("_id status").lean();
+  if (!order) {
+    const error = new Error("Order not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const invitations = await Invitation.find({ orderId })
+    .populate("supplierId", "name contacts isActive")
+    .populate("items.partId", "name")
+    .populate("items.carModelId", "name brand")
+    .populate("items.categoryId", "name")
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const safeInvitations = invitations.map((invitation) => {
+    if (invitation.token) {
+      delete invitation.token.hash;
+      delete invitation.token.usedAt;
+    }
+    return invitation;
+  });
+
+  return {
+    orderId: order._id,
+    orderStatus: order.status,
+    invitations: safeInvitations,
+  };
+}
+
+async function getOperatorOfferBoard(orderId) {
+  assertObjectId(orderId, "order ID");
+  await expireDueInvitations();
+
+  const order = await Order.findById(orderId)
+    .populate("items.partId", "name")
+    .populate("items.carModelId", "name brand")
+    .populate("items.categoryId", "name")
+    .lean();
+
+  if (!order) {
+    const error = new Error("Order not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const invitations = await Invitation.find({ orderId })
+    .populate("supplierId", "name contacts isActive")
+    .lean();
+
+  const offersByItemKey = new Map();
+  for (const invitation of invitations) {
+    const supplier = invitation.supplierId;
+    for (const item of invitation.items) {
+      if (!offersByItemKey.has(item.itemKey)) {
+        offersByItemKey.set(item.itemKey, []);
+      }
+
+      for (const offer of item.offers) {
+        offersByItemKey.get(item.itemKey).push({
+          ...offer,
+          invitationId: invitation._id,
+          supplierId: supplier?._id || supplier,
+          supplierName: supplier?.name || null,
+          invitationStatus: invitation.lifecycle.status,
+          invitationExpiresAt: invitation.token.expiresAt,
+        });
+      }
+    }
+  }
+
+  const items = order.items.map((item) => {
+    const itemKey = buildItemKey(item.partId?._id || item.partId, item.carModelId?._id || item.carModelId);
+    const offers = offersByItemKey.get(itemKey) || [];
+
+    return {
+      itemKey,
+      partId: item.partId,
+      carModelId: item.carModelId,
+      categoryId: item.categoryId,
+      title: item.title,
+      requestedQuantity: item.qty,
+      currentAvailability: item.availability,
+      offers,
+      hasOffers: offers.length > 0,
+    };
+  });
+
+  return {
+    orderId: order._id,
+    orderStatus: order.status,
+    invitationsCount: invitations.length,
+    items,
+  };
+}
 async function expireDueInvitations() {
   const now = new Date();
 
@@ -459,4 +558,6 @@ module.exports = {
   addOffer,
   updateOffer,
   deleteOffer,
+  getOperatorOrderInvitations,
+  getOperatorOfferBoard,
 };

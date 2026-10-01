@@ -40,6 +40,20 @@ router.get(
   orderController.getOperatorOrders
 );
 
+// Review supplier invitations and offers
+router.get(
+  "/operator/:id/invitations",
+  authenticate,
+  authorize("operator"),
+  orderController.getOperatorOrderInvitations,
+);
+
+router.get(
+  "/operator/:id/offers",
+  authenticate,
+  authorize("operator"),
+  orderController.getOperatorOfferBoard,
+);
 // Get one order
 router.get(
   "/operator/:id",

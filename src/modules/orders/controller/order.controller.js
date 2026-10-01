@@ -1,4 +1,5 @@
 const orderService = require("../service/order.service");
+const invitationService = require("../../invitation/service/invitation.service");
 
 // ============================================================
 // Customer
@@ -87,6 +88,23 @@ async function getOperatorOrders(req, res, next) {
   }
 }
 
+async function getOperatorOrderInvitations(req, res, next) {
+  try {
+    const result = await invitationService.getOperatorOrderInvitations(req.params.id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getOperatorOfferBoard(req, res, next) {
+  try {
+    const result = await invitationService.getOperatorOfferBoard(req.params.id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
 async function getOperatorOrderById(req, res, next) {
   try {
     const { id } = req.params;
@@ -202,6 +220,8 @@ module.exports = {
   // Operator
   getOperatorOrders,
   getOperatorOrderById,
+  getOperatorOrderInvitations,
+  getOperatorOfferBoard,
   startQuoting,
   updateOrderItemPricing,
   submitQuote,
