@@ -11,56 +11,47 @@
  *         mobile:
  *           type: string
  *           example: 09121234567
- *
  *         landLine:
  *           type: string
  *           example: 02188776655
- *
  *         telegram:
  *           type: string
  *           example: "@supplier_company"
  *
- *
- *     SupplierCoverage:
+ *     SupplierCoverageRule:
  *       type: object
  *       required:
- *         - brandId
+ *         - vehicleBrandId
+ *         - carModelIds
+ *         - partCategoryIds
  *       properties:
- *         brandId:
+ *         _id:
+ *           type: string
+ *           description: MongoDB ObjectId of the coverage rule.
+ *         vehicleBrandId:
  *           type: string
  *           description: MongoDB ObjectId of the vehicle brand.
  *           example: 665a7b8c9d0e1f2a3b4c5d6e
- *
- *         allModels:
- *           type: boolean
- *           description: Whether the supplier covers all car models of this brand.
- *           default: false
- *           example: true
- *
  *         carModelIds:
  *           type: array
- *           description: Car model IDs covered by the supplier when allModels is false.
+ *           minItems: 1
  *           items:
  *             type: string
+ *           description: Active car models belonging to vehicleBrandId.
  *           example:
  *             - 665a7b8c9d0e1f2a3b4c5d70
  *             - 665a7b8c9d0e1f2a3b4c5d71
- *
- *         allCategory:
- *           type: boolean
- *           description: Whether the supplier covers all part categories.
- *           default: false
- *           example: true
- *
- *         categoryIds:
+ *         partCategoryIds:
  *           type: array
- *           description: Part category IDs covered by the supplier when allCategory is false.
+ *           minItems: 1
  *           items:
  *             type: string
+ *           description: Active part categories covered by this rule.
  *           example:
  *             - 665a7b8c9d0e1f2a3b4c5d72
- *             - 665a7b8c9d0e1f2a3b4c5d73
- *
+ *         isActive:
+ *           type: boolean
+ *           example: true
  *
  *     SupplierStats:
  *       type: object
@@ -68,72 +59,46 @@
  *         totalPartsSold:
  *           type: number
  *           example: 125
- *
  *         totalRevenue:
  *           type: number
  *           example: 450000000
- *
  *         score:
  *           type: number
  *           example: 4.5
- *
  *         lastCalculatedAt:
  *           type: string
  *           format: date-time
  *           nullable: true
- *           example: 2026-08-14T10:30:00.000Z
- *
  *
  *     Supplier:
  *       type: object
  *       properties:
  *         _id:
  *           type: string
- *           description: MongoDB ObjectId of the supplier.
- *           example: 665a7b8c9d0e1f2a3b4c5d6e
- *
  *         name:
  *           type: string
  *           example: Tehran Auto Parts
- *
  *         address:
  *           type: string
  *           nullable: true
- *           example: Tehran, Karim Khan St, No. 25
- *
  *         contacts:
  *           $ref: '#/components/schemas/SupplierContacts'
- *
- *         coverage:
+ *         coverageRules:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/SupplierCoverage'
- *
+ *             $ref: '#/components/schemas/SupplierCoverageRule'
  *         stats:
  *           $ref: '#/components/schemas/SupplierStats'
- *
  *         balance:
  *           type: number
  *           example: 15000000
- *
  *         balanceUpdatedAt:
  *           type: string
  *           format: date-time
  *           nullable: true
- *           example: 2026-08-14T10:30:00.000Z
- *
  *         isActive:
  *           type: boolean
  *           example: true
- *
- *         createdAt:
- *           type: string
- *           format: date-time
- *
- *         updatedAt:
- *           type: string
- *           format: date-time
- *
  *
  *     CreateSupplierRequest:
  *       type: object
@@ -144,121 +109,58 @@
  *         name:
  *           type: string
  *           example: Tehran Auto Parts
- *
  *         address:
  *           type: string
- *           example: Tehran, Karim Khan St, No. 25
- *
  *         contacts:
  *           $ref: '#/components/schemas/SupplierContacts'
- *
- *         coverage:
+ *         coverageRules:
  *           type: array
- *           description: Initial supplier coverage configuration.
  *           items:
- *             $ref: '#/components/schemas/SupplierCoverage'
- *
+ *             $ref: '#/components/schemas/SupplierCoverageRule'
  *         isActive:
  *           type: boolean
  *           example: true
  *
- *
  *     UpdateSupplierRequest:
  *       type: object
+ *       description: Coverage rules must be managed through the dedicated coverage endpoints.
  *       properties:
  *         name:
  *           type: string
- *           example: Tehran Auto Parts
- *
  *         address:
  *           type: string
- *           example: Tehran, Karim Khan St, No. 25
- *
  *         contacts:
  *           $ref: '#/components/schemas/SupplierContacts'
- *
- *         coverage:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/SupplierCoverage'
- *
  *         balance:
  *           type: number
- *           example: 20000000
- *
  *         balanceUpdatedAt:
  *           type: string
  *           format: date-time
  *           nullable: true
- *
  *         isActive:
  *           type: boolean
- *           example: true
- *
  *
  *     AddSupplierCoverageRequest:
  *       type: object
  *       required:
- *         - brandId
+ *         - vehicleBrandId
+ *         - carModelIds
+ *         - partCategoryIds
  *       properties:
- *         brandId:
+ *         vehicleBrandId:
  *           type: string
- *           description: MongoDB ObjectId of the vehicle brand.
- *           example: 665a7b8c9d0e1f2a3b4c5d6e
- *
- *         allModels:
- *           type: boolean
- *           default: false
- *           example: false
- *
+ *           description: Active vehicle brand ID.
  *         carModelIds:
  *           type: array
- *           description: Required when allModels is false.
+ *           minItems: 1
  *           items:
  *             type: string
- *           example:
- *             - 665a7b8c9d0e1f2a3b4c5d70
- *
- *         allCategory:
- *           type: boolean
- *           default: false
- *           example: false
- *
- *         categoryIds:
+ *         partCategoryIds:
  *           type: array
- *           description: Required when allCategory is false.
+ *           minItems: 1
  *           items:
  *             type: string
- *           example:
- *             - 665a7b8c9d0e1f2a3b4c5d72
- *
  *
  *     ReplaceSupplierCoverageRequest:
- *       type: object
- *       properties:
- *         allModels:
- *           type: boolean
- *           default: false
- *           example: true
- *
- *         carModelIds:
- *           type: array
- *           description: Required when allModels is false.
- *           items:
- *             type: string
- *           example:
- *             - 665a7b8c9d0e1f2a3b4c5d70
- *
- *         allCategory:
- *           type: boolean
- *           default: false
- *           example: true
- *
- *         categoryIds:
- *           type: array
- *           description: Required when allCategory is false.
- *           items:
- *             type: string
- *           example:
- *             - 665a7b8c9d0e1f2a3b4c5d72
+ *       $ref: '#/components/schemas/AddSupplierCoverageRequest'
  */

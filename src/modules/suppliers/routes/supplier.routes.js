@@ -4,6 +4,12 @@ const { authenticate, authorize } = require("../../auth/middleware/auth.middlewa
 
 const router = express.Router();
 
+router.get(
+  "/:id/coverage",
+  authenticate,
+  authorize("admin", "operator"),
+  supplierController.getCoverage,
+);
 router.post(
   "/",
   authenticate,
@@ -48,13 +54,13 @@ router.post(
   supplierController.addCoverage,
 );
 router.put(
-  "/:id/coverage/:brandId",
+  "/:id/coverage/:coverageId",
   authenticate,
   authorize("admin", "operator"),
   supplierController.replaceCoverage,
 );
 router.delete(
-  "/:id/coverage/:brandId",
+  "/:id/coverage/:coverageId",
   authenticate,
   authorize("admin", "operator"),
   supplierController.removeCoverage,

@@ -29,34 +29,35 @@ const supplierSchema = new mongoose.Schema(
       },
     },
 
-    coverage: [
+    coverageRules: [
       {
-        _id: false,
-        brandId: {
+        vehicleBrandId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Brand",
           required: true,
         },
-        allModels: {
-          type: Boolean,
-          default: false,
-        },
+
         carModelIds: [
           {
             type: mongoose.Schema.Types.ObjectId,
             ref: "CarModel",
+            required: true,
           },
         ],
-        allCategory: {
-          type: Boolean,
-          default: false,
-        },
-        categoryIds: [
+
+        partCategoryIds: [
           {
             type: mongoose.Schema.Types.ObjectId,
             ref: "PartCategory",
+            required: true,
           },
         ],
+
+        isActive: {
+          type: Boolean,
+          default: true,
+          index: true,
+        },
       },
     ],
 

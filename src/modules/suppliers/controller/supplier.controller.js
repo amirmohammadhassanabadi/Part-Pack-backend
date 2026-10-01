@@ -48,6 +48,14 @@ async function deleteSupplier(req, res, next) {
   }
 }
 
+async function getCoverage(req, res, next) {
+  try {
+    const coverageRules = await supplierService.getCoverage(req.params.id);
+    res.status(200).json(coverageRules);
+  } catch (error) {
+    next(error);
+  }
+}
 async function addCoverage(req, res, next) {
   try {
     const supplier = await supplierService.addCoverage(req.params.id, req.body);
@@ -61,7 +69,7 @@ async function replaceCoverage(req, res, next) {
   try {
     const supplier = await supplierService.replaceCoverage(
       req.params.id,
-      req.params.brandId,
+      req.params.coverageId,
       req.body
     );
     res.status(200).json(supplier);
@@ -74,7 +82,7 @@ async function removeCoverage(req, res, next) {
   try {
     const supplier = await supplierService.removeCoverage(
       req.params.id,
-      req.params.brandId
+      req.params.coverageId
     );
     res.status(200).json(supplier);
   } catch (error) {
@@ -100,6 +108,7 @@ module.exports = {
   createSupplier,
   getSuppliers,
   getSupplierById,
+  getCoverage,
   updateSupplier,
   deleteSupplier,
   addCoverage,
