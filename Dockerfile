@@ -12,7 +12,6 @@ RUN npm ci \
     --ignore-scripts \
     --registry=https://registry.part-pax.com/repository/npm-group/
 
-
 # ---------- Runtime ----------
 FROM node:22-alpine
 
