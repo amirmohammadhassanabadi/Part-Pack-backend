@@ -286,6 +286,150 @@ async function getInvitationByToken(rawToken, { markOpened = false } = {}) {
   return invitation;
 }
 
+function normalizeNullableString(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return value;
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function validateOfferPayload(payload = {}) {
+  const availability = payload.availability;
+  if (!["available", "unavailable"].includes(availability)) {
+    const error = new Error("Availability must be available or unavailable");
+    error.statusCode = 400;
+    throw error;
+  }
+  const brandName = normalizeNullableString(payload.brandName);
+  const manufacturerName = normalizeNullableString(payload.manufacturerName);
+  const partNumber = normalizeNullableString(payload.partNumber);
+  const description = normalizeNullableString(payload.description);
+  if (availability === "available") {
+    if (!brandName) {
+      const error = new Error("brandName is required for an available offer");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (typeof payload.unitPrice !== "number" || !Number.isFinite(payload.unitPrice) || payload.unitPrice < 0) {
+      const error = new Error("A valid unitPrice is required for an available offer");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!Number.isInteger(payload.availableQuantity) || payload.availableQuantity < 1) {
+      const error = new Error("availableQuantity must be a positive integer for an available offer");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+  if (availability === "unavailable" && !description) {
+    const error = new Error("description is required for an unavailable offer");
+    error.statusCode = 400;
+    throw error;
+  }
+  return {
+    availability,
+    brandName: availability === "available" ? brandName : null,
+    manufacturerName: availability === "available" ? manufacturerName : null,
+    partNumber: availability === "available" ? partNumber : null,
+    unitPrice: availability === "available" ? payload.unitPrice : null,
+    availableQuantity: availability === "available" ? payload.availableQuantity : 0,
+    description,
+  };
+}
+
+function getInvitationItem(invitation, itemKey) {
+  const item = invitation.items.find((entry) => entry.itemKey === itemKey);
+  if (!item) {
+    const error = new Error("Invitation item not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  return item;
+}
+
+async function assertWritableInvitation(rawToken) {
+  return getInvitationByToken(rawToken, { markOpened: true });
+}
+
+function toSupplierView(invitation) {
+  return {
+    id: invitation._id,
+    orderId: invitation.orderId,
+    supplierId: invitation.supplierId,
+    items: invitation.items,
+    lifecycle: invitation.lifecycle,
+    expiresAt: invitation.token.expiresAt,
+  };
+}
+
+async function markOrderCollectingOffers(orderId) {
+  await Order.updateOne(
+    { _id: orderId, status: { $in: ["pending", "supplier_invitation"] } },
+    { $set: { status: "collecting_offers" } },
+  );
+}
+
+async function getSupplierInvitation(rawToken) {
+  const invitation = await assertWritableInvitation(rawToken);
+  return toSupplierView(invitation);
+}
+
+async function addOffer(rawToken, itemKey, payload) {
+  const invitation = await assertWritableInvitation(rawToken);
+  const item = getInvitationItem(invitation, itemKey);
+  const offerData = validateOfferPayload(payload);
+  item.offers.push(offerData);
+  invitation.lifecycle.status = "responded";
+  invitation.lifecycle.respondedAt = new Date();
+  await invitation.save();
+  await markOrderCollectingOffers(invitation.orderId);
+  return {
+    invitation: toSupplierView(invitation),
+    offer: item.offers[item.offers.length - 1],
+  };
+}
+
+async function updateOffer(rawToken, itemKey, offerId, payload) {
+  const invitation = await assertWritableInvitation(rawToken);
+  const item = getInvitationItem(invitation, itemKey);
+  const offer = item.offers.id(offerId);
+  if (!offer) {
+    const error = new Error("Offer not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (offer.selected) {
+    const error = new Error("Selected offers cannot be changed by a supplier");
+    error.statusCode = 409;
+    throw error;
+  }
+  Object.assign(offer, validateOfferPayload(payload));
+  invitation.lifecycle.status = "responded";
+  invitation.lifecycle.respondedAt = new Date();
+  await invitation.save();
+  await markOrderCollectingOffers(invitation.orderId);
+  return { invitation: toSupplierView(invitation), offer };
+}
+
+async function deleteOffer(rawToken, itemKey, offerId) {
+  const invitation = await assertWritableInvitation(rawToken);
+  const item = getInvitationItem(invitation, itemKey);
+  const offer = item.offers.id(offerId);
+  if (!offer) {
+    const error = new Error("Offer not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (offer.selected) {
+    const error = new Error("Selected offers cannot be deleted by a supplier");
+    error.statusCode = 409;
+    throw error;
+  }
+  offer.deleteOne();
+  await invitation.save();
+  return toSupplierView(invitation);
+}
+
 async function expireDueInvitations() {
   const now = new Date();
 
@@ -311,4 +455,8 @@ module.exports = {
   createInvitationsForOrder,
   getInvitationByToken,
   expireDueInvitations,
+  getSupplierInvitation,
+  addOffer,
+  updateOffer,
+  deleteOffer,
 };
