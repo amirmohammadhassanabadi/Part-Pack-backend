@@ -9,10 +9,8 @@ async function createOrder(req, res, next) {
     const { items } = req.body;
 
     const order = await orderService.createOrder(
-      {
-        _id: req.user.userId,
-      },
-      items
+      req.user.userId,
+      items,
     );
 
     return res.status(201).json({

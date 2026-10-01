@@ -240,7 +240,7 @@ async function createInvitationsForOrder(orderId) {
     });
   }
 
-  order.status = "supplier_invitation";
+  order.status = created.length > 0 ? "supplier_invitation" : "collecting_offers";
   await order.save();
 
   return created;

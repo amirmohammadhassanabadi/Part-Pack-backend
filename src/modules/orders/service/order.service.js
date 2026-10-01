@@ -5,6 +5,7 @@ const Part = require("../../parts/model/part.model");
 const CarModel = require("../../vehicles/model/carModel.model");
 const Customer = require("../../customer/model/customer.model");
 const { createInvoiceFromOrder } = require("../../invoice/service/invoice.service");
+const invitationService = require("../../invitation/service/invitation.service");
 
 
 // ============================================================
@@ -188,10 +189,11 @@ async function createOrder(customerId, items) {
     },
 
     items: orderItems,
-
   });
 
-  return order;
+  await invitationService.createInvitationsForOrder(order._id);
+
+  return Order.findById(order._id);
 }
 
 
