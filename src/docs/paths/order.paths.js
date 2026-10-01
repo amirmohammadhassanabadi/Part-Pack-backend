@@ -504,7 +504,7 @@
  *     tags:
  *       - Orders
  *     summary: Cancel an order
- *     description: Cancels an order that has not yet been confirmed.
+ *     description: Cancels an order and any associated pending invoice. Orders with paid invoices cannot be cancelled.
  *     security:
  *       - bearerAuth: []
  *

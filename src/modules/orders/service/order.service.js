@@ -4,7 +4,11 @@ const Order = require("../model/order.model");
 const Part = require("../../parts/model/part.model");
 const CarModel = require("../../vehicles/model/carModel.model");
 const Customer = require("../../customer/model/customer.model");
-const { createInvoiceFromOrder } = require("../../invoice/service/invoice.service");
+const Invoice = require("../../invoice/model/invoice.model");
+const {
+  createInvoiceFromOrder,
+  cancelInvoice,
+} = require("../../invoice/service/invoice.service");
 const invitationService = require("../../invitation/service/invitation.service");
 
 
@@ -750,12 +754,8 @@ async function confirmOrder(orderId) {
 /**
  * Cancel an order.
  *
- * The Order schema currently has no dedicated cancellation
- * field, so this function only changes the status.
- *
- * Any cancellation reason / actor information must therefore
- * be handled according to the fields already present in the
- * existing schema.
+ * If a pending Invoice already exists, it is cancelled together
+ * with the Order. Paid invoices cannot be cancelled.
  */
 async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) {
   if (!isValidObjectId(orderId)) {
@@ -772,10 +772,39 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
     throw new Error("Order is already cancelled");
   }
 
-  if (order.status === "confirmed") {
-    throw new Error(
-      "A confirmed order cannot be cancelled through this operation"
+  let invoice = null;
+  if (order.invoiceId) {
+    invoice = await Invoice.findById(order.invoiceId).select("_id status");
+
+    if (!invoice) {
+      const error = new Error("Order invoice not found");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (invoice.status === "paid") {
+      const error = new Error(
+        "An order with a paid invoice cannot be cancelled",
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (!['pending', 'cancelled'].includes(invoice.status)) {
+      const error = new Error(
+        `Order cannot be cancelled while invoice is "${invoice.status}"`,
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
+  if (order.status === "confirmed" && !invoice) {
+    const error = new Error(
+      "A confirmed order must have an invoice before it can be cancelled",
     );
+    error.statusCode = 409;
+    throw error;
   }
 
   order.status = "cancelled";
@@ -786,6 +815,10 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
   };
 
   await order.save();
+
+  if (invoice?.status === "pending") {
+    await cancelInvoice(invoice._id);
+  }
 
   return order;
 }
