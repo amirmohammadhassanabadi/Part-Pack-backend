@@ -198,7 +198,7 @@ async function confirmOrder(req, res, next) {
   try {
     const { id } = req.params;
 
-    const order = await orderService.confirmOrder(id);
+    const order = await orderService.confirmOrder(id, req.user.userId);
 
     return res.status(200).json({
       success: true,

@@ -34,7 +34,10 @@ async function getInvoiceByOrderId(req, res, next) {
 
 async function markInvoiceAsPaid(req, res, next) {
   try {
-    const invoice = await invoiceService.markInvoiceAsPaid(req.params.id);
+    const invoice = await invoiceService.markInvoiceAsPaid(
+      req.params.id,
+      req.user.userId,
+    );
 
     res.status(200).json(invoice);
   } catch (error) {
@@ -44,7 +47,10 @@ async function markInvoiceAsPaid(req, res, next) {
 
 async function cancelInvoice(req, res, next) {
   try {
-    const invoice = await invoiceService.cancelInvoice(req.params.id);
+    const invoice = await invoiceService.cancelInvoice(
+      req.params.id,
+      req.user.userId,
+    );
 
     res.status(200).json(invoice);
   } catch (error) {

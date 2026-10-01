@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Invoice = require("../model/invoice.model");
 const Order = require("../../orders/model/order.model");
 const Supplier = require("../../suppliers/model/supplier.model");
+const { recordEvent } = require("../../audit/service/audit.service");
 
 async function createInvoiceFromOrder(orderId) {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
@@ -141,6 +142,16 @@ async function createInvoiceFromOrder(orderId) {
   order.invoiceId = invoice._id;
   await order.save();
 
+  await recordEvent({
+    orderId: order._id,
+    type: "invoice_created",
+    invoiceId: invoice._id,
+    metadata: {
+      total: invoice.total,
+      lineCount: invoice.lines.length,
+    },
+  });
+
   return invoice;
 }
 
@@ -200,7 +211,7 @@ async function getInvoiceByOrderId(orderId) {
   return invoice;
 }
 
-async function markInvoiceAsPaid(id) {
+async function markInvoiceAsPaid(id, actorId = null) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     const error = new Error("Invalid invoice ID");
     error.statusCode = 400;
@@ -226,10 +237,18 @@ async function markInvoiceAsPaid(id) {
   invoice.status = "paid";
   await invoice.save();
 
+  await recordEvent({
+    orderId: invoice.orderId,
+    type: "invoice_paid",
+    actorType: mongoose.isValidObjectId(actorId) ? "operator" : "system",
+    actorId,
+    invoiceId: invoice._id,
+  });
+
   return invoice;
 }
 
-async function cancelInvoice(id) {
+async function cancelInvoice(id, actorId = null) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     const error = new Error("Invalid invoice ID");
     error.statusCode = 400;
@@ -254,6 +273,14 @@ async function cancelInvoice(id) {
 
   invoice.status = "cancelled";
   await invoice.save();
+
+  await recordEvent({
+    orderId: invoice.orderId,
+    type: "invoice_cancelled",
+    actorType: mongoose.isValidObjectId(actorId) ? "operator" : "system",
+    actorId,
+    invoiceId: invoice._id,
+  });
 
   return invoice;
 }

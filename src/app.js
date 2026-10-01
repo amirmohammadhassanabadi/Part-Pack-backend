@@ -17,6 +17,7 @@ const partsRouter = require("./modules/parts");
 const orderRouter = require("./modules/orders");
 const invoiceRouter = require("./modules/invoice");
 const invitationRouter = require("./modules/invitation");
+const auditRouter = require("./modules/audit");
 
 // App
 const app = express();
@@ -51,6 +52,7 @@ app.use("/api/v1/parts", partsRouter);
 app.use("/api/v1/orders", orderRouter);
 app.use("/api/v1/invoices", invoiceRouter);
 app.use("/api/v1/invitations", invitationRouter);
+app.use("/api/v1/audit", auditRouter);
 
 // ÙØ¹Ø§Ù„â€ŒØ³Ø§Ø²ÛŒ Ù…Ø¯ÛŒØ±ÛŒØª Ø®Ø·Ø§ÛŒ Ù…Ø±Ú©Ø²ÛŒ
 app.use(errorHandler);

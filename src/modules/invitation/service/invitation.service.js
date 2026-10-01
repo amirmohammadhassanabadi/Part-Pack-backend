@@ -5,6 +5,7 @@ const Invitation = require("../model/invitation.model");
 const Order = require("../../orders/model/order.model");
 const Supplier = require("../../suppliers/model/supplier.model");
 const supplierService = require("../../suppliers/service/supplier.service");
+const { recordEvent } = require("../../audit/service/audit.service");
 
 const INVITATION_TTL_MS = 30 * 60 * 1000;
 
@@ -138,6 +139,17 @@ async function createInvitation({ orderId, supplierId, assignments }) {
       sentAt: new Date(),
       openedAt: null,
       respondedAt: null,
+    },
+  });
+
+  await recordEvent({
+    orderId,
+    type: "supplier_invitation_created",
+    supplierId,
+    invitationId: invitation._id,
+    metadata: {
+      itemCount: items.length,
+      expiresAt,
     },
   });
 
@@ -277,10 +289,20 @@ async function getInvitationByToken(rawToken, { markOpened = false } = {}) {
     throw error;
   }
 
-  if (markOpened && invitation.lifecycle.status === "sent") {
+  const wasSent = invitation.lifecycle.status === "sent";
+  if (markOpened && wasSent) {
     invitation.lifecycle.status = "opened";
     invitation.lifecycle.openedAt = new Date();
     await invitation.save();
+
+    await recordEvent({
+      orderId: invitation.orderId,
+      type: "invitation_opened",
+      actorType: "supplier",
+      actorId: invitation.supplierId,
+      supplierId: invitation.supplierId,
+      invitationId: invitation._id,
+    });
   }
 
   return invitation;
@@ -383,6 +405,22 @@ async function addOffer(rawToken, itemKey, payload) {
   invitation.lifecycle.respondedAt = new Date();
   await invitation.save();
   await markOrderCollectingOffers(invitation.orderId);
+  await recordEvent({
+    orderId: invitation.orderId,
+    type: "offer_submitted",
+    actorType: "supplier",
+    actorId: invitation.supplierId,
+    supplierId: invitation.supplierId,
+    invitationId: invitation._id,
+    metadata: {
+      itemKey,
+      offerId: item.offers[item.offers.length - 1]._id,
+      availability: offerData.availability,
+      brandName: offerData.brandName,
+      unitPrice: offerData.unitPrice,
+      availableQuantity: offerData.availableQuantity,
+    },
+  });
   return {
     invitation: toSupplierView(invitation),
     offer: item.offers[item.offers.length - 1],
@@ -408,6 +446,15 @@ async function updateOffer(rawToken, itemKey, offerId, payload) {
   invitation.lifecycle.respondedAt = new Date();
   await invitation.save();
   await markOrderCollectingOffers(invitation.orderId);
+  await recordEvent({
+    orderId: invitation.orderId,
+    type: "offer_updated",
+    actorType: "supplier",
+    actorId: invitation.supplierId,
+    supplierId: invitation.supplierId,
+    invitationId: invitation._id,
+    metadata: { itemKey, offerId },
+  });
   return { invitation: toSupplierView(invitation), offer };
 }
 
@@ -427,6 +474,15 @@ async function deleteOffer(rawToken, itemKey, offerId) {
   }
   offer.deleteOne();
   await invitation.save();
+  await recordEvent({
+    orderId: invitation.orderId,
+    type: "offer_deleted",
+    actorType: "supplier",
+    actorId: invitation.supplierId,
+    supplierId: invitation.supplierId,
+    invitationId: invitation._id,
+    metadata: { itemKey, offerId },
+  });
   return toSupplierView(invitation);
 }
 
@@ -716,6 +772,23 @@ async function selectOrderOffers(orderId, selections, operatorId) {
   order.status = "offers_ready";
   await Promise.all(invitations.map((invitation) => invitation.save()));
   await order.save();
+
+  await recordEvent({
+    orderId,
+    type: "offers_selected",
+    actorType: "operator",
+    actorId: operatorId,
+    metadata: {
+      selections: [...decisionsByKey.entries()].map(([itemKey, selection]) => ({
+        itemKey,
+        availability: selection.availability === "unavailable"
+          ? "unavailable"
+          : "available",
+        offerId: selection.offerId || null,
+        selectedQuantity: selection.selectedQuantity || null,
+      })),
+    },
+  });
 
   return order;
 }

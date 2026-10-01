@@ -10,6 +10,7 @@ const {
   cancelInvoice,
 } = require("../../invoice/service/invoice.service");
 const invitationService = require("../../invitation/service/invitation.service");
+const { recordEvent } = require("../../audit/service/audit.service");
 
 
 // ============================================================
@@ -196,6 +197,14 @@ async function createOrder(customerId, items) {
   });
 
   await invitationService.createInvitationsForOrder(order._id);
+
+  await recordEvent({
+    orderId: order._id,
+    type: "order_created",
+    actorType: "customer",
+    actorId: customer._id,
+    metadata: { itemCount: orderItems.length },
+  });
 
   return Order.findById(order._id);
 }
@@ -710,7 +719,7 @@ function validateFinalOrderItems(order) {
  * The Invoice module creates the pending invoice
  * after this operation.
  */
-async function confirmOrder(orderId) {
+async function confirmOrder(orderId, operatorId = null) {
   if (!isValidObjectId(orderId)) {
     throw new Error("Invalid order ID");
   }
@@ -739,6 +748,14 @@ async function confirmOrder(orderId) {
 
   // Create invoice
   const invoice = await createInvoiceFromOrder(order._id);
+
+  await recordEvent({
+    orderId: order._id,
+    type: "order_confirmed",
+    actorType: "operator",
+    actorId: operatorId,
+    invoiceId: invoice._id,
+  });
 
   return {
     order,
@@ -817,8 +834,19 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
   await order.save();
 
   if (invoice?.status === "pending") {
-    await cancelInvoice(invoice._id);
+    await cancelInvoice(invoice._id, cancelledBy);
   }
+
+  await recordEvent({
+    orderId: order._id,
+    type: "order_cancelled",
+    actorType: isValidObjectId(cancelledBy) ? "operator" : "system",
+    actorId: cancelledBy,
+    invoiceId: invoice?._id || null,
+    metadata: {
+      reason: order.cancellation.reason,
+    },
+  });
 
   return order;
 }
