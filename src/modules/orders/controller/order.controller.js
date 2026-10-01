@@ -180,7 +180,10 @@ async function cancelOrder(req, res, next) {
   try {
     const { id } = req.params;
 
-    const order = await orderService.cancelOrder(id);
+    const order = await orderService.cancelOrder(id, {
+      reason: req.body?.reason,
+      cancelledBy: req.user.userId,
+    });
 
     return res.status(200).json({
       success: true,

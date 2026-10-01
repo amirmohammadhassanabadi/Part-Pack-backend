@@ -4,9 +4,32 @@ const orderSchema = new mongoose.Schema(
   {
     status: {
       type: String,
-      enum: ["pending", "quoting", "quoted", "confirmed", "cancelled"],
+      enum: ["pending", "supplier_invitation", "collecting_offers", "offers_ready", "confirmed", "cancelled"],
       default: "pending",
       index: true,
+    },
+
+    invoiceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Invoice",
+      default: null,
+      index: true,
+    },
+
+    cancellation: {
+      reason: {
+        type: String,
+        trim: true,
+        default: null,
+      },
+      cancelledBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+      },
+      cancelledAt: {
+        type: Date,
+        default: null,
+      },
     },
 
     customer: {
@@ -84,42 +107,6 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-    invitations: [
-      {
-        supplierId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Supplier",
-          required: true,
-        },
-        token: {
-          type: String,
-          required: true,
-        },
-        partIds: {
-          type: [mongoose.Schema.Types.ObjectId],
-          ref: "Part",
-          required: true,
-        },
-        status: {
-          type: String,
-          enum: ["sent", "opened", "responded", "expired"],
-          default: "sent",
-        },
-        sentAt: {
-          type: Date,
-          default: null,
-        },
-        expiresAt: {
-          type: Date,
-          default: null,
-        },
-        respondedAt: {
-          type: Date,
-          default: null,
-        },
-        _id: false,
-      },
-    ],
   },
   { timestamps: true },
 );

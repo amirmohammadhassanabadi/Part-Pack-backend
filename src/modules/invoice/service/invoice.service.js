@@ -91,6 +91,9 @@ async function createInvoiceFromOrder(orderId) {
     total,
   });
 
+  order.invoiceId = invoice._id;
+  await order.save();
+
   return invoice;
 }
 

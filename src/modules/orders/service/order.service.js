@@ -189,7 +189,6 @@ async function createOrder(customerId, items) {
 
     items: orderItems,
 
-    invitations: [],
   });
 
   return order;
@@ -296,8 +295,9 @@ async function getOperatorOrders(options = {}) {
   if (status) {
     const allowedStatuses = [
       "pending",
-      "quoting",
-      "quoted",
+      "supplier_invitation",
+      "collecting_offers",
+      "offers_ready",
       "confirmed",
       "cancelled",
     ];
@@ -387,7 +387,7 @@ async function startQuoting(orderId) {
     );
   }
 
-  order.status = "quoting";
+  order.status = "supplier_invitation";
 
   await order.save();
 
@@ -431,9 +431,9 @@ async function updateOrderItemPricing(
     throw new Error("Order not found");
   }
 
-  if (order.status !== "quoting") {
+  if (order.status !== "collecting_offers") {
     throw new Error(
-      "Order must be in quoting status before updating item pricing"
+      "Order must be in collecting_offers status before updating item pricing"
     );
   }
 
@@ -544,7 +544,7 @@ async function submitQuote(orderId) {
     throw new Error("Order not found");
   }
 
-  if (order.status !== "quoting") {
+  if (order.status !== "collecting_offers") {
     throw new Error(
       `Order cannot be quoted from status "${order.status}"`
     );
@@ -602,7 +602,7 @@ async function submitQuote(orderId) {
     );
   }
 
-  order.status = "quoted";
+  order.status = "offers_ready";
 
   await order.save();
 
@@ -635,7 +635,7 @@ async function confirmOrder(orderId) {
     throw new Error("Order not found");
   }
 
-  if (order.status !== "quoted") {
+  if (order.status !== "offers_ready") {
     throw new Error(
       `Order cannot be confirmed from status "${order.status}"`
     );
@@ -711,7 +711,7 @@ async function confirmOrder(orderId) {
  * be handled according to the fields already present in the
  * existing schema.
  */
-async function cancelOrder(orderId) {
+async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) {
   if (!isValidObjectId(orderId)) {
     throw new Error("Invalid order ID");
   }
@@ -733,6 +733,11 @@ async function cancelOrder(orderId) {
   }
 
   order.status = "cancelled";
+  order.cancellation = {
+    reason: typeof reason === "string" && reason.trim() ? reason.trim() : null,
+    cancelledBy: isValidObjectId(cancelledBy) ? cancelledBy : null,
+    cancelledAt: new Date(),
+  };
 
   await order.save();
 
