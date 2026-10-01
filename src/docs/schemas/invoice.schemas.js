@@ -25,9 +25,8 @@
  *         - partId
  *         - carModelId
  *         - title
+ *         - availability
  *         - qty
- *         - supplierId
- *         - supplierName
  *         - unitPrice
  *         - lineTotal
  *       properties:
@@ -40,15 +39,35 @@
  *         title:
  *           type: string
  *           example: Brake Pad
+ *         availability:
+ *           type: string
+ *           enum:
+ *             - available
+ *             - unavailable
+ *           example: available
+ *         description:
+ *           type: string
+ *           nullable: true
+ *           example: No suitable supplier offer was received
+ *         brandName:
+ *           type: string
+ *           nullable: true
+ *           example: Bosch
+ *         manufacturerName:
+ *           type: string
+ *           nullable: true
+ *           example: Bosch Automotive
  *         qty:
  *           type: integer
  *           minimum: 1
  *           example: 2
  *         supplierId:
  *           type: string
+ *           nullable: true
  *           example: 665a7b8c9d0e1f2a3b4c5d71
  *         supplierName:
  *           type: string
+ *           nullable: true
  *           example: Part Pack
  *         partNumber:
  *           type: string
@@ -56,6 +75,7 @@
  *           example: BP-12345
  *         unitPrice:
  *           type: number
+ *           minimum: 0
  *           example: 2500000
  *         lineTotal:
  *           type: number

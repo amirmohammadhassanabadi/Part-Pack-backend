@@ -45,6 +45,31 @@ const invoiceSchema = new mongoose.Schema(
           required: true,
           trim: true,
         },
+
+        availability: {
+          type: String,
+          enum: ["available", "unavailable"],
+          required: true,
+        },
+
+        description: {
+          type: String,
+          trim: true,
+          default: null,
+        },
+
+        brandName: {
+          type: String,
+          trim: true,
+          default: null,
+        },
+
+        manufacturerName: {
+          type: String,
+          trim: true,
+          default: null,
+        },
+
         qty: {
           type: Number,
           required: true,
@@ -57,14 +82,17 @@ const invoiceSchema = new mongoose.Schema(
         supplierName: {
           type: String,
           trim: true,
+          default: null,
         },
         partNumber: {
           type: String,
           trim: true,
+          default: null,
         },
         unitPrice: {
           type: Number,
           required: true,
+          min: 0,
         },
         lineTotal: {
           type: Number,

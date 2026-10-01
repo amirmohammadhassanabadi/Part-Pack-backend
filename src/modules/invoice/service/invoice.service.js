@@ -34,20 +34,8 @@ async function createInvoiceFromOrder(orderId) {
     throw error;
   }
 
-  // First 6 months: Part Pack is the supplier.
-  const supplier = await Supplier.findOne({
-    name: "Part Pack",
-    isActive: true,
-  });
-
-  if (!supplier) {
-    const error = new Error("Part Pack supplier not found");
-    error.statusCode = 404;
-    throw error;
-  }
-
   const availableItems = order.items.filter(
-    (item) => item.availability.status === "available"
+    (item) => item.availability.status === "available",
   );
 
   if (availableItems.length === 0) {
@@ -58,17 +46,76 @@ async function createInvoiceFromOrder(orderId) {
     throw error;
   }
 
-  const lines = availableItems.map((item) => {
-    const lineTotal = item.qty * item.unitPrice;
+  const selectedSupplierIds = availableItems
+    .map((item) => item.selectedOffer?.supplierId)
+    .filter(Boolean);
+
+  const suppliers = await Supplier.find({
+    _id: { $in: selectedSupplierIds },
+  })
+    .select("name")
+    .lean();
+
+  const supplierNames = new Map(
+    suppliers.map((supplier) => [String(supplier._id), supplier.name]),
+  );
+
+  const lines = order.items.map((item) => {
+    const isAvailable = item.availability.status === "available";
+    const selectedOffer = item.selectedOffer;
+
+    if (isAvailable && !selectedOffer) {
+      const error = new Error(
+        `Available item "${item.title}" has no selected supplier offer`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!isAvailable && (!item.availability.description || !item.availability.description.trim())) {
+      const error = new Error(
+        `Unavailable item "${item.title}" has no description`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (
+      isAvailable &&
+      (!Number.isInteger(selectedOffer.selectedQuantity) ||
+        selectedOffer.selectedQuantity < 1 ||
+        selectedOffer.selectedQuantity > item.qty ||
+        typeof selectedOffer.unitPrice !== "number" ||
+        !Number.isFinite(selectedOffer.unitPrice) ||
+        selectedOffer.unitPrice < 0)
+    ) {
+      const error = new Error(
+        `Selected offer for item "${item.title}" has invalid quantity or price`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const qty = isAvailable ? selectedOffer.selectedQuantity : item.qty;
+    const unitPrice = isAvailable ? selectedOffer.unitPrice : 0;
+    const lineTotal = isAvailable ? qty * unitPrice : 0;
+    const supplierId = isAvailable ? selectedOffer.supplierId : null;
 
     return {
       partId: item.partId,
       carModelId: item.carModelId,
       title: item.title,
-      qty: item.qty,
-      supplierId: supplier._id,
-      supplierName: supplier.name,
-      unitPrice: item.unitPrice,
+      availability: isAvailable ? "available" : "unavailable",
+      description: item.availability.description || null,
+      brandName: isAvailable ? selectedOffer.brandName : null,
+      manufacturerName: isAvailable ? selectedOffer.manufacturerName : null,
+      qty,
+      supplierId,
+      supplierName: supplierId
+        ? supplierNames.get(String(supplierId)) || null
+        : null,
+      partNumber: isAvailable ? selectedOffer.partNumber : null,
+      unitPrice,
       lineTotal,
     };
   });
