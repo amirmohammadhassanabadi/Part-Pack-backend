@@ -103,6 +103,65 @@ const orderSchema = new mongoose.Schema(
           default: null,
         },
 
+        selectedOffer: {
+          invitationId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Invitation",
+            default: null,
+          },
+
+          supplierId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Supplier",
+            default: null,
+          },
+
+          offerId: {
+            type: mongoose.Schema.Types.ObjectId,
+            default: null,
+          },
+
+          brandName: {
+            type: String,
+            trim: true,
+            default: null,
+          },
+
+          manufacturerName: {
+            type: String,
+            trim: true,
+            default: null,
+          },
+
+          partNumber: {
+            type: String,
+            trim: true,
+            default: null,
+          },
+
+          unitPrice: {
+            type: Number,
+            min: 0,
+            default: null,
+          },
+
+          selectedQuantity: {
+            type: Number,
+            min: 1,
+            default: null,
+          },
+
+          selectedAt: {
+            type: Date,
+            default: null,
+          },
+
+          selectedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            default: null,
+          },
+        },
+
         _id: false,
       },
     ],

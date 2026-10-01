@@ -105,6 +105,23 @@ async function getOperatorOfferBoard(req, res, next) {
     next(error);
   }
 }
+
+async function selectOrderOffers(req, res, next) {
+  try {
+    const order = await invitationService.selectOrderOffers(
+      req.params.id,
+      req.body?.selections,
+      req.user.userId,
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 async function getOperatorOrderById(req, res, next) {
   try {
     const { id } = req.params;
@@ -222,6 +239,7 @@ module.exports = {
   getOperatorOrderById,
   getOperatorOrderInvitations,
   getOperatorOfferBoard,
+  selectOrderOffers,
   startQuoting,
   updateOrderItemPricing,
   submitQuote,

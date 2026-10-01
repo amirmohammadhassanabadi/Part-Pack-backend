@@ -529,6 +529,196 @@ async function getOperatorOfferBoard(orderId) {
     items,
   };
 }
+
+async function selectOrderOffers(orderId, selections, operatorId) {
+  assertObjectId(orderId, "order ID");
+  assertObjectId(operatorId, "operator ID");
+
+  if (!Array.isArray(selections) || selections.length === 0) {
+    const error = new Error("Selections are required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    const error = new Error("Order not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!["collecting_offers", "offers_ready"].includes(order.status)) {
+    const error = new Error(
+      `Offers cannot be selected when order status is "${order.status}"`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const orderItemsByKey = new Map(
+    order.items.map((item) => [
+      buildItemKey(item.partId, item.carModelId),
+      item,
+    ]),
+  );
+
+  if (selections.length !== orderItemsByKey.size) {
+    const error = new Error("Every order item must have an explicit decision");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const decisionsByKey = new Map();
+  for (const selection of selections) {
+    if (!selection || typeof selection.itemKey !== "string") {
+      const error = new Error("Each selection must include itemKey");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!orderItemsByKey.has(selection.itemKey) || decisionsByKey.has(selection.itemKey)) {
+      const error = new Error(`Invalid or duplicate order item: ${selection.itemKey}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const isUnavailable = selection.availability === "unavailable";
+    const hasOfferId = mongoose.isValidObjectId(selection.offerId);
+
+    if (isUnavailable) {
+      if (typeof selection.reason !== "string" || !selection.reason.trim()) {
+        const error = new Error("A reason is required for an unavailable item");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (selection.offerId !== undefined) {
+        const error = new Error("Unavailable decisions cannot include offerId");
+        error.statusCode = 400;
+        throw error;
+      }
+    } else {
+      if (!hasOfferId) {
+        const error = new Error("A valid offerId is required for an available item");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    decisionsByKey.set(selection.itemKey, selection);
+  }
+
+  for (const itemKey of orderItemsByKey.keys()) {
+    if (!decisionsByKey.has(itemKey)) {
+      const error = new Error(`Missing decision for order item: ${itemKey}`);
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  await expireDueInvitations();
+  const invitations = await Invitation.find({ orderId });
+  const offersById = new Map();
+
+  for (const invitation of invitations) {
+    for (const invitationItem of invitation.items) {
+      for (const offer of invitationItem.offers) {
+        offersById.set(String(offer._id), {
+          invitation,
+          invitationItem,
+          offer,
+        });
+      }
+    }
+  }
+
+  for (const [itemKey, selection] of decisionsByKey) {
+    const orderItem = orderItemsByKey.get(itemKey);
+
+    if (selection.availability === "unavailable") {
+      orderItem.availability.status = "unavailable";
+      orderItem.availability.description = selection.reason.trim();
+      orderItem.unitPrice = null;
+      orderItem.selectedOffer = null;
+      continue;
+    }
+
+    const offerRecord = offersById.get(String(selection.offerId));
+    if (!offerRecord || offerRecord.invitationItem.itemKey !== itemKey) {
+      const error = new Error("Offer does not belong to the selected order item");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const { invitation, offer } = offerRecord;
+    if (offer.availability !== "available") {
+      const error = new Error("Only available offers can be selected");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const selectedQuantity = selection.selectedQuantity === undefined
+      ? offer.availableQuantity
+      : selection.selectedQuantity;
+
+    if (
+      !Number.isInteger(selectedQuantity) ||
+      selectedQuantity < 1 ||
+      selectedQuantity > orderItem.qty ||
+      selectedQuantity > offer.availableQuantity
+    ) {
+      const error = new Error(
+        `selectedQuantity for "${itemKey}" must be between 1 and the requested and available quantities`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    orderItem.availability.status = "available";
+    orderItem.availability.description = offer.description || null;
+    orderItem.unitPrice = offer.unitPrice;
+    orderItem.selectedOffer = {
+      invitationId: invitation._id,
+      supplierId: invitation.supplierId,
+      offerId: offer._id,
+      brandName: offer.brandName,
+      manufacturerName: offer.manufacturerName,
+      partNumber: offer.partNumber,
+      unitPrice: offer.unitPrice,
+      selectedQuantity,
+      selectedAt: new Date(),
+      selectedBy: operatorId,
+    };
+  }
+
+  // Clear every previous selection for this order before applying the new set.
+  for (const invitation of invitations) {
+    for (const invitationItem of invitation.items) {
+      const itemKey = invitationItem.itemKey;
+      const decision = decisionsByKey.get(itemKey);
+      for (const offer of invitationItem.offers) {
+        offer.selected = false;
+        offer.selectedAt = null;
+        offer.selectedBy = null;
+      }
+
+      if (decision?.availability !== "unavailable" && decision?.offerId) {
+        const selectedOffer = invitationItem.offers.id(decision.offerId);
+        if (selectedOffer) {
+          selectedOffer.selected = true;
+          selectedOffer.selectedAt = new Date();
+          selectedOffer.selectedBy = operatorId;
+        }
+      }
+    }
+  }
+
+  order.status = "offers_ready";
+  await Promise.all(invitations.map((invitation) => invitation.save()));
+  await order.save();
+
+  return order;
+}
 async function expireDueInvitations() {
   const now = new Date();
 
@@ -560,4 +750,5 @@ module.exports = {
   deleteOffer,
   getOperatorOrderInvitations,
   getOperatorOfferBoard,
+  selectOrderOffers,
 };

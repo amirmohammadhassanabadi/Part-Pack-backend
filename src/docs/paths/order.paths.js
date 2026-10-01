@@ -135,6 +135,41 @@
  */
 /**
  * @openapi
+ * /orders/operator/{id}/select-offers:
+ *   post:
+ *     tags:
+ *       - Orders
+ *     summary: Select supplier offers for an order
+ *     description: Selects one available supplier offer per item, or marks an item unavailable.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Order ID
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/SelectOrderOffersRequest"
+ *     responses:
+ *       200:
+ *         description: Offer decisions saved successfully.
+ *       400:
+ *         description: Every item must have a valid offer selection or unavailable decision.
+ *       401:
+ *         description: Authentication required.
+ *       403:
+ *         description: Access denied. Operator role required.
+ *       404:
+ *         description: Order not found.
+ */
+/**
+ * @openapi
  * /orders/operator:
  *   get:
  *     tags:

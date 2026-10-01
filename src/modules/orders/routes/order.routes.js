@@ -54,6 +54,14 @@ router.get(
   authorize("operator"),
   orderController.getOperatorOfferBoard,
 );
+
+// Select one supplier offer per item, or mark an item unavailable
+router.post(
+  "/operator/:id/select-offers",
+  authenticate,
+  authorize("operator"),
+  orderController.selectOrderOffers,
+);
 // Get one order
 router.get(
   "/operator/:id",

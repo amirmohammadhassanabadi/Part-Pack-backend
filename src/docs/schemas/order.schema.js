@@ -63,6 +63,40 @@
  *           nullable: true
  *           example: null
  *
+ *         selectedOffer:
+ *           $ref: "#/components/schemas/SelectedOffer"
+ *
+ *
+ *     SelectedOffer:
+ *       type: object
+ *       nullable: true
+ *       properties:
+ *         invitationId:
+ *           type: string
+ *         supplierId:
+ *           type: string
+ *         offerId:
+ *           type: string
+ *         brandName:
+ *           type: string
+ *         manufacturerName:
+ *           type: string
+ *           nullable: true
+ *         partNumber:
+ *           type: string
+ *           nullable: true
+ *         unitPrice:
+ *           type: number
+ *           minimum: 0
+ *         selectedQuantity:
+ *           type: integer
+ *           minimum: 1
+ *         selectedAt:
+ *           type: string
+ *           format: date-time
+ *         selectedBy:
+ *           type: string
+
  *
  *     OrderCustomer:
  *       type: object
@@ -91,7 +125,6 @@
  *         - status
  *         - customer
  *         - items
- *         - invitations
  *         - createdAt
  *         - updatedAt
  *       properties:
@@ -103,8 +136,9 @@
  *           type: string
  *           enum:
  *             - pending
- *             - quoting
- *             - quoted
+ *             - supplier_invitation
+ *             - collecting_offers
+ *             - offers_ready
  *             - confirmed
  *             - cancelled
  *           example: pending
@@ -117,10 +151,9 @@
  *           items:
  *             $ref: "#/components/schemas/OrderItem"
  *
- *         invitations:
- *           type: array
- *           items:
- *             type: object
+ *         invoiceId:
+ *           type: string
+ *           nullable: true
  *
  *         createdAt:
  *           type: string
@@ -193,6 +226,43 @@
  *           minimum: 0
  *           nullable: true
  *           example: 2500000
+ *
+ *     SelectOrderOffersRequest:
+ *       type: object
+ *       required:
+ *         - selections
+ *       properties:
+ *         selections:
+ *           type: array
+ *           minItems: 1
+ *           items:
+ *             oneOf:
+ *               - type: object
+ *                 required:
+ *                   - itemKey
+ *                   - offerId
+ *                 properties:
+ *                   itemKey:
+ *                     type: string
+ *                     example: "665f1c8e2f8c1b0012345678:665f1c8e2f8c1b0098765432"
+ *                   offerId:
+ *                     type: string
+ *                   selectedQuantity:
+ *                     type: integer
+ *                     minimum: 1
+ *               - type: object
+ *                 required:
+ *                   - itemKey
+ *                   - availability
+ *                   - reason
+ *                 properties:
+ *                   itemKey:
+ *                     type: string
+ *                   availability:
+ *                     type: string
+ *                     enum: [unavailable]
+ *                   reason:
+ *                     type: string
  * 
  *     Pagination:
  *       type: object
