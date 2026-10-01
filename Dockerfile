@@ -10,7 +10,7 @@ RUN npm ci \
     --no-audit \
     --no-fund \
     --ignore-scripts \
-    --registry=https://registry.part-pack.ir/repository/npm-group/
+    --registry=https://registry.part-pax.com/repository/npm-group/
 
 
 # ---------- Runtime ----------
