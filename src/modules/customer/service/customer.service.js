@@ -15,7 +15,9 @@ async function createCustomer(data) {
   }
   const existingAuth = await Auth.findOne({ phone: data.phone });
   if (existingAuth) {
-    const error = new Error("An account with this phone number already exists.");
+    const error = new Error(
+      "An account with this phone number already exists.",
+    );
     error.statusCode = 409;
     throw error;
   }
@@ -84,7 +86,7 @@ async function addOrderToCustomer(customerId, orderId) {
   const customer = await Customer.findByIdAndUpdate(
     customerId,
     { $addToSet: { orders: orderId } }, // $addToSet از ثبت تکراری جلوگیری می‌کند
-    { new: true }
+    { new: true },
   );
 
   if (!customer) throw new Error("مشتری یافت نشد");
@@ -103,7 +105,7 @@ async function addInvoiceToCustomer(customerId, invoiceId) {
   const customer = await Customer.findByIdAndUpdate(
     customerId,
     { $addToSet: { invoices: invoiceId } },
-    { new: true }
+    { new: true },
   );
 
   if (!customer) throw new Error("مشتری یافت نشد");
@@ -115,7 +117,7 @@ async function addInvoiceToCustomer(customerId, invoiceId) {
 async function addAddress(customerId, addressData) {
   const customer = await Customer.findById(customerId);
   if (!customer) throw new Error("مشتری یافت نشد");
-  
+
   customer.addresses.push(addressData);
   await customer.save();
   return customer;
@@ -144,5 +146,5 @@ module.exports = {
   addOrderToCustomer,
   addInvoiceToCustomer,
   addAddress,
-  addCarToCustomer
+  addCarToCustomer,
 };
