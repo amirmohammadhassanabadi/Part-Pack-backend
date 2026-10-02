@@ -188,8 +188,9 @@
  *           type: string
  *           enum:
  *             - pending
- *             - quoting
- *             - quoted
+ *             - supplier_invitation
+ *             - collecting_offers
+ *             - offers_ready
  *             - confirmed
  *             - cancelled
  *         example: pending
@@ -290,114 +291,6 @@
  */
 /**
  * @openapi
- * /orders/operator/{id}/start-quoting:
- *   post:
- *     tags:
- *       - Orders
- *     summary: Start quoting an order
- *     description: Changes the order status from pending to quoting.
- *     security:
- *       - bearerAuth: []
- *
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: Order ID
- *         schema:
- *           type: string
- *         example: "665f1c8e2f8c1b001234abcd"
- *
- *     responses:
- *       200:
- *         description: Order status changed to quoting successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: "#/components/schemas/Order"
- *
- *       400:
- *         description: Order cannot be moved to quoting.
- *
- *       401:
- *         description: Authentication required.
- *
- *       403:
- *         description: Access denied. Operator role required.
- *
- *       404:
- *         description: Order not found.
- */
-/**
- * @openapi
- * /orders/operator/{id}/items/{itemIndex}:
- *   patch:
- *     tags:
- *       - Orders
- *     summary: Update an order item's availability and price
- *     description: Allows the operator to set the availability status, availability description, and unit price for an order item.
- *     security:
- *       - bearerAuth: []
- *
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: Order ID
- *         schema:
- *           type: string
- *         example: "665f1c8e2f8c1b001234abcd"
- *
- *       - name: itemIndex
- *         in: path
- *         required: true
- *         description: Zero-based index of the item in the order's items array.
- *         schema:
- *           type: integer
- *           minimum: 0
- *         example: 0
- *
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: "#/components/schemas/UpdateOrderItemPricingRequest"
- *
- *     responses:
- *       200:
- *         description: Order item updated successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: "#/components/schemas/Order"
- *
- *       400:
- *         description: Invalid availability or pricing data.
- *
- *       401:
- *         description: Authentication required.
- *
- *       403:
- *         description: Access denied. Operator role required.
- *
- *       404:
- *         description: Order or order item not found.
- */
-/**
- * @openapi
  * /orders/operator/{id}/confirm:
  *   post:
  *     tags:
@@ -435,58 +328,6 @@
  *
  *       400:
  *         description: Order cannot be confirmed from its current state.
- *
- *       401:
- *         description: Authentication required.
- *
- *       403:
- *         description: Access denied. Operator role required.
- *
- *       404:
- *         description: Order not found.
- */
-/**
- * @openapi
- * /orders/operator/{id}/submit-quote:
- *   post:
- *     tags:
- *       - Orders
- *     summary: Submit an order quotation
- *     description: >
- *       Submits the quotation after the operator has processed every
- *       order item. This legacy endpoint changes the order status to
- *       offers_ready; the recommended flow is to use select-offers.
- *     security:
- *       - bearerAuth: []
- *
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: Order ID
- *         schema:
- *           type: string
- *         example: "665f1c8e2f8c1b001234abcd"
- *
- *     responses:
- *       200:
- *         description: Quotation submitted successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: "#/components/schemas/Order"
- *
- *       400:
- *         description: >
- *           The quotation cannot be submitted. One or more items may
- *           still be pending, missing a required price or description,
- *           or all items may be unavailable.
  *
  *       401:
  *         description: Authentication required.

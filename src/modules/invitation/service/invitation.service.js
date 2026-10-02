@@ -6,6 +6,8 @@ const Order = require("../../orders/model/order.model");
 const Supplier = require("../../suppliers/model/supplier.model");
 const supplierService = require("../../suppliers/service/supplier.service");
 const { recordEvent } = require("../../audit/service/audit.service");
+const { sendSupplierInvitation } = require("../../notification/service/notification.service");
+const { withTransaction } = require("../../../core/database/transaction");
 
 const INVITATION_TTL_MS = 30 * 60 * 1000;
 
@@ -51,7 +53,7 @@ function normalizeAssignments(assignments) {
   return [...unique.values()];
 }
 
-async function createInvitation({ orderId, supplierId, assignments }) {
+async function createInvitation({ orderId, supplierId, assignments, session = null }) {
   assertObjectId(orderId, "order ID");
   assertObjectId(supplierId, "supplier ID");
 
@@ -61,7 +63,9 @@ async function createInvitation({ orderId, supplierId, assignments }) {
     throw error;
   }
 
-  const order = await Order.findById(orderId);
+  const orderQuery = Order.findById(orderId);
+  if (session) orderQuery.session(session);
+  const order = await orderQuery;
   if (!order) {
     const error = new Error("Order not found");
     error.statusCode = 404;
@@ -76,17 +80,21 @@ async function createInvitation({ orderId, supplierId, assignments }) {
     throw error;
   }
 
-  const supplier = await Supplier.findOne({ _id: supplierId, isActive: true });
+  const supplierQuery = Supplier.findOne({ _id: supplierId, isActive: true });
+  if (session) supplierQuery.session(session);
+  const supplier = await supplierQuery;
   if (!supplier) {
     const error = new Error("Active supplier not found");
     error.statusCode = 404;
     throw error;
   }
 
-  const existingInvitation = await Invitation.findOne({
+  const existingInvitationQuery = Invitation.findOne({
     orderId,
     supplierId,
   });
+  if (session) existingInvitationQuery.session(session);
+  const existingInvitation = await existingInvitationQuery;
   if (existingInvitation) {
     const error = new Error("Invitation already exists for this supplier");
     error.statusCode = 409;
@@ -125,7 +133,7 @@ async function createInvitation({ orderId, supplierId, assignments }) {
   const rawToken = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
 
-  const invitation = await Invitation.create({
+  const invitationPayload = {
     orderId,
     supplierId,
     items,
@@ -140,7 +148,10 @@ async function createInvitation({ orderId, supplierId, assignments }) {
       openedAt: null,
       respondedAt: null,
     },
-  });
+  };
+  const [invitation] = session
+    ? await Invitation.create([invitationPayload], { session })
+    : [await Invitation.create(invitationPayload)];
 
   await recordEvent({
     orderId,
@@ -151,6 +162,14 @@ async function createInvitation({ orderId, supplierId, assignments }) {
       itemCount: items.length,
       expiresAt,
     },
+    session,
+  });
+
+  await sendSupplierInvitation({
+    orderId,
+    supplierId,
+    token: rawToken,
+    expiresAt,
   });
 
   return {
@@ -160,13 +179,15 @@ async function createInvitation({ orderId, supplierId, assignments }) {
   };
 }
 
-async function findSuppliersForOrder(orderId) {
+async function findSuppliersForOrder(orderId, session = null) {
   assertObjectId(orderId, "order ID");
 
-  const order = await Order.findById(orderId).populate({
+  const orderQuery = Order.findById(orderId).populate({
     path: "items.carModelId",
     select: "brand name",
   });
+  if (session) orderQuery.session(session);
+  const order = await orderQuery;
 
   if (!order) {
     const error = new Error("Order not found");
@@ -215,10 +236,12 @@ async function findSuppliersForOrder(orderId) {
   return [...suppliersById.values()];
 }
 
-async function createInvitationsForOrder(orderId) {
+async function createInvitationsForOrder(orderId, { session = null } = {}) {
   assertObjectId(orderId, "order ID");
 
-  const order = await Order.findById(orderId);
+  const orderQuery = Order.findById(orderId);
+  if (session) orderQuery.session(session);
+  const order = await orderQuery;
   if (!order) {
     const error = new Error("Order not found");
     error.statusCode = 404;
@@ -233,7 +256,7 @@ async function createInvitationsForOrder(orderId) {
     throw error;
   }
 
-  const assignments = await findSuppliersForOrder(orderId);
+  const assignments = await findSuppliersForOrder(orderId, session);
   const created = [];
 
   for (const assignment of assignments) {
@@ -241,6 +264,7 @@ async function createInvitationsForOrder(orderId) {
       orderId,
       supplierId: assignment.supplierId,
       assignments: assignment.assignments,
+      session,
     });
 
     created.push({
@@ -253,7 +277,7 @@ async function createInvitationsForOrder(orderId) {
   }
 
   order.status = created.length > 0 ? "supplier_invitation" : "collecting_offers";
-  await order.save();
+  await order.save(session ? { session } : undefined);
 
   return created;
 }
@@ -586,7 +610,7 @@ async function getOperatorOfferBoard(orderId) {
   };
 }
 
-async function selectOrderOffers(orderId, selections, operatorId) {
+async function selectOrderOffersInTransaction(orderId, selections, operatorId, session) {
   assertObjectId(orderId, "order ID");
   assertObjectId(operatorId, "operator ID");
 
@@ -596,7 +620,7 @@ async function selectOrderOffers(orderId, selections, operatorId) {
     throw error;
   }
 
-  const order = await Order.findById(orderId);
+  const order = await Order.findById(orderId).session(session);
   if (!order) {
     const error = new Error("Order not found");
     error.statusCode = 404;
@@ -672,8 +696,7 @@ async function selectOrderOffers(orderId, selections, operatorId) {
     }
   }
 
-  await expireDueInvitations();
-  const invitations = await Invitation.find({ orderId });
+  const invitations = await Invitation.find({ orderId }).session(session);
   const offersById = new Map();
 
   for (const invitation of invitations) {
@@ -770,8 +793,8 @@ async function selectOrderOffers(orderId, selections, operatorId) {
   }
 
   order.status = "offers_ready";
-  await Promise.all(invitations.map((invitation) => invitation.save()));
-  await order.save();
+  await Promise.all(invitations.map((invitation) => invitation.save({ session })));
+  await order.save({ session });
 
   await recordEvent({
     orderId,
@@ -788,9 +811,16 @@ async function selectOrderOffers(orderId, selections, operatorId) {
         selectedQuantity: selection.selectedQuantity || null,
       })),
     },
+    session,
   });
 
   return order;
+}
+
+async function selectOrderOffers(orderId, selections, operatorId) {
+  return withTransaction((session) =>
+    selectOrderOffersInTransaction(orderId, selections, operatorId, session),
+  );
 }
 async function expireDueInvitations() {
   const now = new Date();

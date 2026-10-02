@@ -5,6 +5,11 @@ const {
   authenticate,
   authorize,
 } = require("../../auth/middleware/auth.middleware");
+const {
+  validateBody,
+  validateCreateOrder,
+  validateSelectOffers,
+} = require("../../../core/validation/validate");
 
 const router = express.Router();
 
@@ -13,6 +18,7 @@ router.post(
   "/",
   authenticate,
   authorize("customer"),
+  validateBody(validateCreateOrder),
   orderController.createOrder
 );
 
@@ -60,6 +66,7 @@ router.post(
   "/operator/:id/select-offers",
   authenticate,
   authorize("operator"),
+  validateBody(validateSelectOffers),
   orderController.selectOrderOffers,
 );
 // Get one order
@@ -68,30 +75,6 @@ router.get(
   authenticate,
   authorize("operator"),
   orderController.getOperatorOrderById
-);
-
-// Start processing an order
-router.post(
-  "/operator/:id/start-quoting",
-  authenticate,
-  authorize("operator"),
-  orderController.startQuoting
-);
-
-// Update availability / price of an item
-router.patch(
-  "/operator/:id/items/:itemIndex",
-  authenticate,
-  authorize("operator"),
-  orderController.updateOrderItemPricing
-);
-
-// Submit quotation
-router.post(
-  "/operator/:id/submit-quote",
-  authenticate,
-  authorize("operator"),
-  orderController.submitQuote
 );
 
 // Confirm order after customer agrees

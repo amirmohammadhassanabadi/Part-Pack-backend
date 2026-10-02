@@ -6,6 +6,7 @@ const {
   authorize,
   authorizeCustomerOwnership,
 } = require("../../auth/middleware/auth.middleware");
+const { validateBody, validateCustomer } = require("../../../core/validation/validate");
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ const router = express.Router();
 // Customer registration
 router.post(
   "/",
+  validateBody(validateCustomer),
   customerController.createCustomer
 );
 

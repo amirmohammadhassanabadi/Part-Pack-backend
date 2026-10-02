@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "hasanabadi.am1380@gmail.com",

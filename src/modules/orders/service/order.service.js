@@ -11,6 +11,7 @@ const {
 } = require("../../invoice/service/invoice.service");
 const invitationService = require("../../invitation/service/invitation.service");
 const { recordEvent } = require("../../audit/service/audit.service");
+const { withTransaction } = require("../../../core/database/transaction");
 
 
 // ============================================================
@@ -184,29 +185,30 @@ async function createOrder(customerId, items) {
     });
   }
 
-  const order = await Order.create({
-    status: "pending",
+  return withTransaction(async (session) => {
+    const [order] = await Order.create([{
+      status: "pending",
+      customer: {
+        customerId: customer._id,
+        name: customer.fullName,
+        phone: customer.phone,
+      },
+      items: orderItems,
+    }], { session });
 
-    customer: {
-      customerId: customer._id,
-      name: customer.fullName,
-      phone: customer.phone,
-    },
+    await invitationService.createInvitationsForOrder(order._id, { session });
 
-    items: orderItems,
+    await recordEvent({
+      orderId: order._id,
+      type: "order_created",
+      actorType: "customer",
+      actorId: customer._id,
+      metadata: { itemCount: orderItems.length },
+      session,
+    });
+
+    return Order.findById(order._id).session(session);
   });
-
-  await invitationService.createInvitationsForOrder(order._id);
-
-  await recordEvent({
-    orderId: order._id,
-    type: "order_created",
-    actorType: "customer",
-    actorId: customer._id,
-    metadata: { itemCount: orderItems.length },
-  });
-
-  return Order.findById(order._id);
 }
 
 
@@ -293,8 +295,9 @@ async function getCustomerOrderById(customerId, orderId) {
  * Optional:
  *
  * ?status=pending
- * ?status=quoting
- * ?status=quoted
+ * ?status=supplier_invitation
+ * ?status=collecting_offers
+ * ?status=offers_ready
  * ?status=confirmed
  * ?status=cancelled
  */
@@ -368,258 +371,6 @@ async function getOperatorOrderById(orderId) {
   if (!order) {
     throw new Error("Order not found");
   }
-
-  return order;
-}
-
-
-// ============================================================
-// Operator - Start quoting
-// ============================================================
-
-/**
- * Move:
- *
- * pending -> quoting
- *
- * This means the operator has started processing
- * the customer's order.
- */
-async function startQuoting(orderId) {
-  if (!isValidObjectId(orderId)) {
-    throw new Error("Invalid order ID");
-  }
-
-  const order = await Order.findById(orderId);
-
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  if (order.status !== "pending") {
-    throw new Error(
-      `Order cannot start quoting from status "${order.status}"`
-    );
-  }
-
-  order.status = "supplier_invitation";
-
-  await order.save();
-
-  return order;
-}
-
-
-// ============================================================
-// Operator - Update item pricing
-// ============================================================
-
-/**
- * Update availability and price of one order item.
- *
- * pending:
- *   unitPrice = null
- *   description = null
- *
- * available:
- *   unitPrice required
- *   description optional
- *
- * unavailable:
- *   unitPrice = null
- *   description required
- */
-async function updateOrderItemPricing(
-  orderId,
-  itemIndex,
-  availabilityStatus,
-  unitPrice = null,
-  description = null
-) {
-  if (!isValidObjectId(orderId)) {
-    throw new Error("Invalid order ID");
-  }
-
-  const order = await Order.findById(orderId);
-
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  if (order.status !== "collecting_offers") {
-    throw new Error(
-      "Order must be in collecting_offers status before updating item pricing"
-    );
-  }
-
-  const index = Number(itemIndex);
-
-  if (
-    !Number.isInteger(index) ||
-    index < 0 ||
-    index >= order.items.length
-  ) {
-    throw new Error("Invalid order item");
-  }
-
-  const item = order.items[index];
-
-  const allowedStatuses = [
-    "pending",
-    "available",
-    "unavailable",
-  ];
-
-  if (!allowedStatuses.includes(availabilityStatus)) {
-    throw new Error("Invalid availability status");
-  }
-
-  // ----------------------------------------------------------
-  // Pending
-  // ----------------------------------------------------------
-
-  if (availabilityStatus === "pending") {
-    item.availability.status = "pending";
-    item.availability.description = null;
-    item.unitPrice = null;
-  }
-
-  // ----------------------------------------------------------
-  // Available
-  // ----------------------------------------------------------
-
-  else if (availabilityStatus === "available") {
-    if (
-      unitPrice === null ||
-      unitPrice === undefined ||
-      typeof unitPrice !== "number" ||
-      !Number.isFinite(unitPrice) ||
-      unitPrice < 0
-    ) {
-      throw new Error(
-        "A valid unit price is required for an available item"
-      );
-    }
-
-    item.availability.status = "available";
-
-    item.availability.description =
-      typeof description === "string" &&
-      description.trim()
-        ? description.trim()
-        : null;
-
-    item.unitPrice = unitPrice;
-  }
-
-  // ----------------------------------------------------------
-  // Unavailable
-  // ----------------------------------------------------------
-
-  else if (availabilityStatus === "unavailable") {
-    if (
-      typeof description !== "string" ||
-      !description.trim()
-    ) {
-      throw new Error(
-        "A description is required for an unavailable item"
-      );
-    }
-
-    item.availability.status = "unavailable";
-    item.availability.description = description.trim();
-    item.unitPrice = null;
-  }
-
-  await order.save();
-
-  return order;
-}
-
-
-// ============================================================
-// Operator - Submit quotation
-// ============================================================
-
-/**
- * Move:
- *
- * quoting -> quoted
- *
- * Every item must have been processed.
- */
-async function submitQuote(orderId) {
-  if (!isValidObjectId(orderId)) {
-    throw new Error("Invalid order ID");
-  }
-
-  const order = await Order.findById(orderId);
-
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  if (order.status !== "collecting_offers") {
-    throw new Error(
-      `Order cannot be quoted from status "${order.status}"`
-    );
-  }
-
-  for (const item of order.items) {
-    // No item can remain pending.
-    if (item.availability.status === "pending") {
-      throw new Error(
-        `Item "${item.title}" has not been processed yet`
-      );
-    }
-
-    // Available item must have a price.
-    if (item.availability.status === "available") {
-      if (
-        item.unitPrice === null ||
-        item.unitPrice === undefined
-      ) {
-        throw new Error(
-          `Item "${item.title}" is available but has no unit price`
-        );
-      }
-    }
-
-    // Unavailable item must have a description
-    // and cannot have a price.
-    if (item.availability.status === "unavailable") {
-      if (
-        !item.availability.description ||
-        !item.availability.description.trim()
-      ) {
-        throw new Error(
-          `Item "${item.title}" is unavailable but has no description`
-        );
-      }
-
-      if (item.unitPrice !== null) {
-        throw new Error(
-          `Unavailable item "${item.title}" cannot have a unit price`
-        );
-      }
-    }
-  }
-
-  // At least one item must be available.
-  const availableItems = order.items.filter(
-    (item) =>
-      item.availability.status === "available"
-  );
-
-  if (availableItems.length === 0) {
-    throw new Error(
-      "Order cannot be quoted because no items are available"
-    );
-  }
-
-  order.status = "offers_ready";
-
-  await order.save();
 
   return order;
 }
@@ -724,43 +475,41 @@ async function confirmOrder(orderId, operatorId = null) {
     throw new Error("Invalid order ID");
   }
 
-  const order = await Order.findById(orderId);
+  return withTransaction(async (session) => {
+    const order = await Order.findById(orderId).session(session);
 
-  if (!order) {
-    throw new Error("Order not found");
-  }
+    if (!order) {
+      throw new Error("Order not found");
+    }
 
-  if (order.status !== "offers_ready") {
-    throw new Error(
-      `Order cannot be confirmed from status "${order.status}"`
-    );
-  }
+    if (order.status !== "offers_ready") {
+      throw new Error(
+        `Order cannot be confirmed from status "${order.status}"`
+      );
+    }
 
-  if (order.invoiceId) {
-    throw new Error("Order already has an invoice");
-  }
+    if (order.invoiceId) {
+      throw new Error("Order already has an invoice");
+    }
 
-  validateFinalOrderItems(order);
+    validateFinalOrderItems(order);
 
-  // Confirm the order
-  order.status = "confirmed";
-  await order.save();
+    order.status = "confirmed";
+    await order.save({ session });
 
-  // Create invoice
-  const invoice = await createInvoiceFromOrder(order._id);
+    const invoice = await createInvoiceFromOrder(order._id, { session });
 
-  await recordEvent({
-    orderId: order._id,
-    type: "order_confirmed",
-    actorType: "operator",
-    actorId: operatorId,
-    invoiceId: invoice._id,
+    await recordEvent({
+      orderId: order._id,
+      type: "order_confirmed",
+      actorType: "operator",
+      actorId: operatorId,
+      invoiceId: invoice._id,
+      session,
+    });
+
+    return { order, invoice };
   });
-
-  return {
-    order,
-    invoice,
-  };
 }
 
 
@@ -779,76 +528,81 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
     throw new Error("Invalid order ID");
   }
 
-  const order = await Order.findById(orderId);
+  return withTransaction(async (session) => {
+    const order = await Order.findById(orderId).session(session);
 
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  if (order.status === "cancelled") {
-    throw new Error("Order is already cancelled");
-  }
-
-  let invoice = null;
-  if (order.invoiceId) {
-    invoice = await Invoice.findById(order.invoiceId).select("_id status");
-
-    if (!invoice) {
-      const error = new Error("Order invoice not found");
-      error.statusCode = 409;
-      throw error;
+    if (!order) {
+      throw new Error("Order not found");
     }
 
-    if (invoice.status === "paid") {
+    if (order.status === "cancelled") {
+      throw new Error("Order is already cancelled");
+    }
+
+    let invoice = null;
+    if (order.invoiceId) {
+      invoice = await Invoice.findById(order.invoiceId)
+        .select("_id status")
+        .session(session);
+
+      if (!invoice) {
+        const error = new Error("Order invoice not found");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      if (invoice.status === "paid") {
+        const error = new Error(
+          "An order with a paid invoice cannot be cancelled",
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      if (!["pending", "cancelled"].includes(invoice.status)) {
+        const error = new Error(
+          `Order cannot be cancelled while invoice is "${invoice.status}"`,
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+    }
+
+    if (order.status === "confirmed" && !invoice) {
       const error = new Error(
-        "An order with a paid invoice cannot be cancelled",
+        "A confirmed order must have an invoice before it can be cancelled",
       );
       error.statusCode = 409;
       throw error;
     }
 
-    if (!['pending', 'cancelled'].includes(invoice.status)) {
-      const error = new Error(
-        `Order cannot be cancelled while invoice is "${invoice.status}"`,
-      );
-      error.statusCode = 409;
-      throw error;
+    order.status = "cancelled";
+    order.cancellation = {
+      reason: typeof reason === "string" && reason.trim() ? reason.trim() : null,
+      cancelledBy: isValidObjectId(cancelledBy) ? cancelledBy : null,
+      cancelledAt: new Date(),
+    };
+
+    await order.save({ session });
+
+    if (invoice?.status === "pending") {
+      await cancelInvoice(invoice._id, cancelledBy, { session });
     }
-  }
 
-  if (order.status === "confirmed" && !invoice) {
-    const error = new Error(
-      "A confirmed order must have an invoice before it can be cancelled",
-    );
-    error.statusCode = 409;
-    throw error;
-  }
+    await recordEvent({
+      orderId: order._id,
+      type: "order_cancelled",
+      actorType: isValidObjectId(cancelledBy) ? "operator" : "system",
+      actorId: cancelledBy,
+      invoiceId: invoice?._id || null,
+      metadata: {
+        reason: order.cancellation.reason,
+      },
+      session,
+    });
 
-  order.status = "cancelled";
-  order.cancellation = {
-    reason: typeof reason === "string" && reason.trim() ? reason.trim() : null,
-    cancelledBy: isValidObjectId(cancelledBy) ? cancelledBy : null,
-    cancelledAt: new Date(),
-  };
-
-  await order.save();
-
-  if (invoice?.status === "pending") {
-    await cancelInvoice(invoice._id, cancelledBy);
-  }
-
-  await recordEvent({
-    orderId: order._id,
-    type: "order_cancelled",
-    actorType: isValidObjectId(cancelledBy) ? "operator" : "system",
-    actorId: cancelledBy,
-    invoiceId: invoice?._id || null,
-    metadata: {
-      reason: order.cancellation.reason,
-    },
+    return order;
   });
-
-  return order;
 }
 
 
@@ -865,9 +619,6 @@ module.exports = {
   // Operator
   getOperatorOrders,
   getOperatorOrderById,
-  startQuoting,
-  updateOrderItemPricing,
-  submitQuote,
   confirmOrder,
   cancelOrder,
 };

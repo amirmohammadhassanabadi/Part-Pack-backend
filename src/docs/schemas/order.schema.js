@@ -199,33 +199,6 @@
  *             $ref: "#/components/schemas/CreateOrderItem"
  *
  *
- *     UpdateOrderItemPricingRequest:
- *       type: object
- *       required:
- *         - availability
- *       properties:
- *         availability:
- *           type: object
- *           required:
- *             - status
- *           properties:
- *             status:
- *               type: string
- *               enum:
- *                 - available
- *                 - unavailable
- *               example: available
- *
- *             description:
- *               type: string
- *               nullable: true
- *               example: null
- *
- *         unitPrice:
- *           type: number
- *           minimum: 0
- *           nullable: true
- *           example: 2500000
  *
  *     SelectOrderOffersRequest:
  *       type: object

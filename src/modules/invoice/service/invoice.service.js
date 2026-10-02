@@ -4,14 +4,16 @@ const Order = require("../../orders/model/order.model");
 const Supplier = require("../../suppliers/model/supplier.model");
 const { recordEvent } = require("../../audit/service/audit.service");
 
-async function createInvoiceFromOrder(orderId) {
+async function createInvoiceFromOrder(orderId, { session = null } = {}) {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     const error = new Error("Invalid order ID");
     error.statusCode = 400;
     throw error;
   }
 
-  const order = await Order.findById(orderId);
+  const orderQuery = Order.findById(orderId);
+  if (session) orderQuery.session(session);
+  const order = await orderQuery;
 
   if (!order) {
     const error = new Error("Order not found");
@@ -27,7 +29,9 @@ async function createInvoiceFromOrder(orderId) {
     throw error;
   }
 
-  const existingInvoice = await Invoice.findOne({ orderId });
+  const existingInvoiceQuery = Invoice.findOne({ orderId });
+  if (session) existingInvoiceQuery.session(session);
+  const existingInvoice = await existingInvoiceQuery;
 
   if (existingInvoice) {
     const error = new Error("Invoice already exists for this order");
@@ -51,11 +55,13 @@ async function createInvoiceFromOrder(orderId) {
     .map((item) => item.selectedOffer?.supplierId)
     .filter(Boolean);
 
-  const suppliers = await Supplier.find({
+  const suppliersQuery = Supplier.find({
     _id: { $in: selectedSupplierIds },
   })
     .select("name")
     .lean();
+  if (session) suppliersQuery.session(session);
+  const suppliers = await suppliersQuery;
 
   const supplierNames = new Map(
     suppliers.map((supplier) => [String(supplier._id), supplier.name]),
@@ -126,7 +132,7 @@ async function createInvoiceFromOrder(orderId) {
     0
   );
 
-  const invoice = await Invoice.create({
+  const invoicePayload = {
     orderId: order._id,
 
     customer: {
@@ -137,10 +143,13 @@ async function createInvoiceFromOrder(orderId) {
 
     lines,
     total,
-  });
+  };
+  const [invoice] = session
+    ? await Invoice.create([invoicePayload], { session })
+    : [await Invoice.create(invoicePayload)];
 
   order.invoiceId = invoice._id;
-  await order.save();
+  await order.save(session ? { session } : undefined);
 
   await recordEvent({
     orderId: order._id,
@@ -150,6 +159,7 @@ async function createInvoiceFromOrder(orderId) {
       total: invoice.total,
       lineCount: invoice.lines.length,
     },
+    session,
   });
 
   return invoice;
@@ -211,14 +221,16 @@ async function getInvoiceByOrderId(orderId) {
   return invoice;
 }
 
-async function markInvoiceAsPaid(id, actorId = null) {
+async function markInvoiceAsPaid(id, actorId = null, { session = null } = {}) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     const error = new Error("Invalid invoice ID");
     error.statusCode = 400;
     throw error;
   }
 
-  const invoice = await Invoice.findById(id);
+  const invoiceQuery = Invoice.findById(id);
+  if (session) invoiceQuery.session(session);
+  const invoice = await invoiceQuery;
 
   if (!invoice) {
     const error = new Error("Invoice not found");
@@ -235,7 +247,7 @@ async function markInvoiceAsPaid(id, actorId = null) {
   }
 
   invoice.status = "paid";
-  await invoice.save();
+  await invoice.save(session ? { session } : undefined);
 
   await recordEvent({
     orderId: invoice.orderId,
@@ -243,19 +255,22 @@ async function markInvoiceAsPaid(id, actorId = null) {
     actorType: mongoose.isValidObjectId(actorId) ? "operator" : "system",
     actorId,
     invoiceId: invoice._id,
+    session,
   });
 
   return invoice;
 }
 
-async function cancelInvoice(id, actorId = null) {
+async function cancelInvoice(id, actorId = null, { session = null } = {}) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     const error = new Error("Invalid invoice ID");
     error.statusCode = 400;
     throw error;
   }
 
-  const invoice = await Invoice.findById(id);
+  const invoiceQuery = Invoice.findById(id);
+  if (session) invoiceQuery.session(session);
+  const invoice = await invoiceQuery;
 
   if (!invoice) {
     const error = new Error("Invoice not found");
@@ -272,7 +287,7 @@ async function cancelInvoice(id, actorId = null) {
   }
 
   invoice.status = "cancelled";
-  await invoice.save();
+  await invoice.save(session ? { session } : undefined);
 
   await recordEvent({
     orderId: invoice.orderId,
@@ -280,6 +295,7 @@ async function cancelInvoice(id, actorId = null) {
     actorType: mongoose.isValidObjectId(actorId) ? "operator" : "system",
     actorId,
     invoiceId: invoice._id,
+    session,
   });
 
   return invoice;

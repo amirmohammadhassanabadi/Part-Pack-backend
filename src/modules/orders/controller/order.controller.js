@@ -137,63 +137,6 @@ async function getOperatorOrderById(req, res, next) {
   }
 }
 
-async function startQuoting(req, res, next) {
-  try {
-    const { id } = req.params;
-
-    const order = await orderService.startQuoting(id);
-
-    return res.status(200).json({
-      success: true,
-      data: order,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-async function updateOrderItemPricing(req, res, next) {
-  try {
-    const { id, itemIndex } = req.params;
-
-    const {
-      availabilityStatus,
-      unitPrice,
-      description,
-    } = req.body;
-
-    const order = await orderService.updateOrderItemPricing(
-      id,
-      Number(itemIndex),
-      availabilityStatus,
-      unitPrice,
-      description
-    );
-
-    return res.status(200).json({
-      success: true,
-      data: order,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-async function submitQuote(req, res, next) {
-  try {
-    const { id } = req.params;
-
-    const order = await orderService.submitQuote(id);
-
-    return res.status(200).json({
-      success: true,
-      data: order,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
 async function confirmOrder(req, res, next) {
   try {
     const { id } = req.params;
@@ -240,9 +183,6 @@ module.exports = {
   getOperatorOrderInvitations,
   getOperatorOfferBoard,
   selectOrderOffers,
-  startQuoting,
-  updateOrderItemPricing,
-  submitQuote,
   confirmOrder,
   cancelOrder,
 };

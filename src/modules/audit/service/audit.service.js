@@ -11,13 +11,14 @@ async function recordEvent({
   invitationId = null,
   invoiceId = null,
   metadata = {},
+  session = null,
 }) {
   if (!mongoose.isValidObjectId(orderId)) {
     return null;
   }
 
   try {
-    return await AuditEvent.create({
+    const payload = {
       orderId,
       type,
       actorType,
@@ -26,9 +27,14 @@ async function recordEvent({
       invitationId: mongoose.isValidObjectId(invitationId) ? invitationId : null,
       invoiceId: mongoose.isValidObjectId(invoiceId) ? invoiceId : null,
       metadata,
-    });
+    };
+    const created = session
+      ? await AuditEvent.create([payload], { session })
+      : [await AuditEvent.create(payload)];
+    return created[0];
   } catch (error) {
-    // Audit logging must not break the business operation it observes.
+    if (session) throw error;
+    // Non-transactional audit logging must not break the business operation.
     console.error("Failed to record audit event:", error.message);
     return null;
   }
