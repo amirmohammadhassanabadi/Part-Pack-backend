@@ -133,6 +133,53 @@
  *       404:
  *         description: Order not found.
  */
+
+/**
+ * @openapi
+ * /orders/operator/{id}/invitations:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Get supplier invitations for an order
+ *     description: Operator-only view of the supplier invitations created for the order.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { $ref: '#/components/schemas/ObjectId' } }
+ *     responses:
+ *       200:
+ *         description: Invitations retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: array, items: { $ref: '#/components/schemas/Invitation' } }
+ *       401: { description: Authentication required }
+ *       403: { description: Operator role required }
+ *       404: { description: Order not found }
+ *
+ * /orders/operator/{id}/offers:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Get the offer board for an order
+ *     description: Returns all supplier offers grouped by order item for operator review.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { $ref: '#/components/schemas/ObjectId' } }
+ *     responses:
+ *       200:
+ *         description: Offer board retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object, additionalProperties: true }
+ *       401: { description: Authentication required }
+ *       403: { description: Operator role required }
+ *       404: { description: Order not found }
+ */
 /**
  * @openapi
  * /orders/operator/{id}/select-offers:

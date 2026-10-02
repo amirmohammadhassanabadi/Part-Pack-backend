@@ -1,6 +1,6 @@
 /**
  * @openapi
- * /api/v1/invoices:
+ * /invoices:
  *   get:
  *     summary: Get all invoices
  *     description: Returns all invoices.
@@ -27,7 +27,7 @@
 
 /**
  * @openapi
- * /api/v1/invoices/{id}:
+ * /invoices/{id}:
  *   get:
  *     summary: Get invoice by ID
  *     description: Returns a single invoice.
@@ -63,7 +63,7 @@
 
 /**
  * @openapi
- * /api/v1/invoices/order/{orderId}:
+ * /invoices/order/{orderId}:
  *   get:
  *     summary: Get invoice by order ID
  *     description: Returns the invoice associated with an order.
@@ -99,7 +99,7 @@
 
 /**
  * @openapi
- * /api/v1/invoices/{id}/pay:
+ * /invoices/{id}/pay:
  *   patch:
  *     summary: Mark invoice as paid
  *     description: Marks a pending invoice as paid.
@@ -135,7 +135,7 @@
 
 /**
  * @openapi
- * /api/v1/invoices/{id}/cancel:
+ * /invoices/{id}/cancel:
  *   patch:
  *     summary: Cancel invoice
  *     description: Cancels a pending invoice.
