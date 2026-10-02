@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const Order = require("../src/modules/orders/model/order.model");
 const Invoice = require("../src/modules/invoice/model/invoice.model");
 const AuditEvent = require("../src/modules/audit/model/auditEvent.model");
+const { withTransaction } = require("../src/core/database/transaction");
 
 const ids = {
   customer: "665f1c8e2f8c1b0011111111",
@@ -62,4 +63,16 @@ test("invoice accepts unavailable lines", () => {
 test("audit event rejects unknown event types", () => {
   const event = new AuditEvent({ orderId: ids.invoice, type: "unknown" });
   assert.match(event.validateSync().errors.type.message, /enum/);
+});
+
+test("transaction helper uses the standalone Mongo fallback by default", async () => {
+  const previous = process.env.MONGO_TRANSACTIONS;
+  delete process.env.MONGO_TRANSACTIONS;
+  const result = await withTransaction(async (session) => {
+    assert.equal(session, null);
+    return "completed-without-session";
+  });
+  assert.equal(result, "completed-without-session");
+  if (previous === undefined) delete process.env.MONGO_TRANSACTIONS;
+  else process.env.MONGO_TRANSACTIONS = previous;
 });

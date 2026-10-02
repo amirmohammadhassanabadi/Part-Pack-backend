@@ -148,8 +148,13 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
     ? await Invoice.create([invoicePayload], { session })
     : [await Invoice.create(invoicePayload)];
 
-  order.invoiceId = invoice._id;
-  await order.save(session ? { session } : undefined);
+  try {
+    order.invoiceId = invoice._id;
+    await order.save(session ? { session } : undefined);
+  } catch (error) {
+    if (!session) await Invoice.deleteOne({ _id: invoice._id });
+    throw error;
+  }
 
   await recordEvent({
     orderId: order._id,

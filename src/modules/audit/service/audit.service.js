@@ -62,4 +62,9 @@ async function getOrderEvents(orderId) {
     .lean();
 }
 
-module.exports = { recordEvent, getOrderEvents };
+async function deleteOrderEvents(orderId) {
+  if (!mongoose.isValidObjectId(orderId)) return null;
+  return AuditEvent.deleteMany({ orderId });
+}
+
+module.exports = { recordEvent, getOrderEvents, deleteOrderEvents };

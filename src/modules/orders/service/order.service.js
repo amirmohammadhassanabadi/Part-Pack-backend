@@ -10,7 +10,10 @@ const {
   cancelInvoice,
 } = require("../../invoice/service/invoice.service");
 const invitationService = require("../../invitation/service/invitation.service");
-const { recordEvent } = require("../../audit/service/audit.service");
+const {
+  recordEvent,
+  deleteOrderEvents,
+} = require("../../audit/service/audit.service");
 const { withTransaction } = require("../../../core/database/transaction");
 
 
@@ -186,7 +189,7 @@ async function createOrder(customerId, items) {
   }
 
   return withTransaction(async (session) => {
-    const [order] = await Order.create([{
+    const orderPayload = {
       status: "pending",
       customer: {
         customerId: customer._id,
@@ -194,9 +197,21 @@ async function createOrder(customerId, items) {
         phone: customer.phone,
       },
       items: orderItems,
-    }], { session });
+    };
+    const [order] = session
+      ? await Order.create([orderPayload], { session })
+      : [await Order.create(orderPayload)];
 
-    await invitationService.createInvitationsForOrder(order._id, { session });
+    try {
+      await invitationService.createInvitationsForOrder(order._id, { session });
+    } catch (error) {
+      if (!session) {
+        await invitationService.deleteInvitationsForOrder(order._id);
+        await deleteOrderEvents(order._id);
+        await Order.deleteOne({ _id: order._id });
+      }
+      throw error;
+    }
 
     await recordEvent({
       orderId: order._id,
@@ -207,7 +222,9 @@ async function createOrder(customerId, items) {
       session,
     });
 
-    return Order.findById(order._id).session(session);
+    const resultQuery = Order.findById(order._id);
+    if (session) resultQuery.session(session);
+    return resultQuery;
   });
 }
 
@@ -476,7 +493,9 @@ async function confirmOrder(orderId, operatorId = null) {
   }
 
   return withTransaction(async (session) => {
-    const order = await Order.findById(orderId).session(session);
+    const orderQuery = Order.findById(orderId);
+    if (session) orderQuery.session(session);
+    const order = await orderQuery;
 
     if (!order) {
       throw new Error("Order not found");
@@ -495,9 +514,19 @@ async function confirmOrder(orderId, operatorId = null) {
     validateFinalOrderItems(order);
 
     order.status = "confirmed";
-    await order.save({ session });
+    await order.save(session ? { session } : undefined);
 
-    const invoice = await createInvoiceFromOrder(order._id, { session });
+    let invoice;
+    try {
+      invoice = await createInvoiceFromOrder(order._id, { session });
+    } catch (error) {
+      if (!session) {
+        order.status = "offers_ready";
+        order.invoiceId = null;
+        await order.save();
+      }
+      throw error;
+    }
 
     await recordEvent({
       orderId: order._id,
@@ -529,7 +558,9 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
   }
 
   return withTransaction(async (session) => {
-    const order = await Order.findById(orderId).session(session);
+    const orderQuery = Order.findById(orderId);
+    if (session) orderQuery.session(session);
+    const order = await orderQuery;
 
     if (!order) {
       throw new Error("Order not found");
@@ -539,11 +570,12 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
       throw new Error("Order is already cancelled");
     }
 
+    const originalOrder = order.toObject();
     let invoice = null;
     if (order.invoiceId) {
-      invoice = await Invoice.findById(order.invoiceId)
-        .select("_id status")
-        .session(session);
+      const invoiceQuery = Invoice.findById(order.invoiceId).select("_id status");
+      if (session) invoiceQuery.session(session);
+      invoice = await invoiceQuery;
 
       if (!invoice) {
         const error = new Error("Order invoice not found");
@@ -583,10 +615,20 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
       cancelledAt: new Date(),
     };
 
-    await order.save({ session });
+    await order.save(session ? { session } : undefined);
 
-    if (invoice?.status === "pending") {
-      await cancelInvoice(invoice._id, cancelledBy, { session });
+    try {
+      if (invoice?.status === "pending") {
+        await cancelInvoice(invoice._id, cancelledBy, { session });
+      }
+    } catch (error) {
+      if (!session) {
+        await Order.replaceOne({ _id: order._id }, originalOrder);
+        if (invoice?.status === "pending") {
+          await Invoice.updateOne({ _id: invoice._id }, { $set: { status: "pending" } });
+        }
+      }
+      throw error;
     }
 
     await recordEvent({

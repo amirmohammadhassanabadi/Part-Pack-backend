@@ -282,6 +282,10 @@ async function createInvitationsForOrder(orderId, { session = null } = {}) {
   return created;
 }
 
+async function deleteInvitationsForOrder(orderId) {
+  return Invitation.deleteMany({ orderId });
+}
+
 async function getInvitationByToken(rawToken, { markOpened = false } = {}) {
   if (typeof rawToken !== "string" || rawToken.length < 32) {
     const error = new Error("Invalid invitation token");
@@ -620,7 +624,9 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
     throw error;
   }
 
-  const order = await Order.findById(orderId).session(session);
+  const orderQuery = Order.findById(orderId);
+  if (session) orderQuery.session(session);
+  const order = await orderQuery;
   if (!order) {
     const error = new Error("Order not found");
     error.statusCode = 404;
@@ -696,7 +702,11 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
     }
   }
 
-  const invitations = await Invitation.find({ orderId }).session(session);
+  const invitationsQuery = Invitation.find({ orderId });
+  if (session) invitationsQuery.session(session);
+  const invitations = await invitationsQuery;
+  const originalOrder = order.toObject();
+  const originalInvitations = invitations.map((invitation) => invitation.toObject());
   const offersById = new Map();
 
   for (const invitation of invitations) {
@@ -793,8 +803,20 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
   }
 
   order.status = "offers_ready";
-  await Promise.all(invitations.map((invitation) => invitation.save({ session })));
-  await order.save({ session });
+  try {
+    await Promise.all(invitations.map((invitation) =>
+      invitation.save(session ? { session } : undefined),
+    ));
+    await order.save(session ? { session } : undefined);
+  } catch (error) {
+    if (!session) {
+      await Promise.all(originalInvitations.map((snapshot) =>
+        Invitation.replaceOne({ _id: snapshot._id }, snapshot),
+      ));
+      await Order.replaceOne({ _id: originalOrder._id }, originalOrder);
+    }
+    throw error;
+  }
 
   await recordEvent({
     orderId,
@@ -845,6 +867,7 @@ module.exports = {
   createInvitation,
   findSuppliersForOrder,
   createInvitationsForOrder,
+  deleteInvitationsForOrder,
   getInvitationByToken,
   expireDueInvitations,
   getSupplierInvitation,
