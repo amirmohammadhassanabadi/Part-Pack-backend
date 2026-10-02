@@ -204,6 +204,22 @@ async function createOrder(customerId, items) {
 
     try {
       await invitationService.createInvitationsForOrder(order._id, { session });
+
+      const customerOrderUpdate = Customer.updateOne(
+        { _id: customer._id },
+        { $addToSet: { orders: order._id } },
+      );
+      if (session) customerOrderUpdate.session(session);
+      await customerOrderUpdate;
+
+      await recordEvent({
+        orderId: order._id,
+        type: "order_created",
+        actorType: "customer",
+        actorId: customer._id,
+        metadata: { itemCount: orderItems.length },
+        session,
+      });
     } catch (error) {
       if (!session) {
         await invitationService.deleteInvitationsForOrder(order._id);
@@ -212,15 +228,6 @@ async function createOrder(customerId, items) {
       }
       throw error;
     }
-
-    await recordEvent({
-      orderId: order._id,
-      type: "order_created",
-      actorType: "customer",
-      actorId: customer._id,
-      metadata: { itemCount: orderItems.length },
-      session,
-    });
 
     const resultQuery = Order.findById(order._id);
     if (session) resultQuery.session(session);

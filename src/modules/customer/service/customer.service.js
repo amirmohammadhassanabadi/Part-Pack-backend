@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Customer = require("../model/customer.model");
 const CarModel = require("../../vehicles/model/carModel.model");
 const Auth = require("../../auth/model/auth.model");
+const { withTransaction } = require("../../../core/database/transaction");
 
 // --- متدهای پایه (CRUD) ---
 
@@ -19,22 +20,28 @@ async function createCustomer(data) {
     throw error;
   }
 
-  const customer = await Customer.create(data);
+  return withTransaction(async (session) => {
+    const [customer] = session
+      ? await Customer.create([data], { session })
+      : [await Customer.create(data)];
 
-  try {
-    await Auth.create({
-      phone: customer.phone,
-      role: "customer",
-      refModel: "Customer",
-      refId: customer._id,
-      isActive: customer.isActive,
-    });
-  } catch (error) {
-    await Customer.deleteOne({ _id: customer._id });
-    throw error;
-  }
+    try {
+      const authPayload = {
+        phone: customer.phone,
+        role: "customer",
+        refModel: "Customer",
+        refId: customer._id,
+        isActive: customer.isActive,
+      };
+      if (session) await Auth.create([authPayload], { session });
+      else await Auth.create(authPayload);
+    } catch (error) {
+      if (!session) await Customer.deleteOne({ _id: customer._id });
+      throw error;
+    }
 
-  return customer;
+    return customer;
+  });
 }
 
 async function getAllCustomers(filters = {}) {

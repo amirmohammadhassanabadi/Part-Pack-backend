@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Invoice = require("../model/invoice.model");
 const Order = require("../../orders/model/order.model");
 const Supplier = require("../../suppliers/model/supplier.model");
+const Customer = require("../../customer/model/customer.model");
 const { recordEvent } = require("../../audit/service/audit.service");
 
 async function createInvoiceFromOrder(orderId, { session = null } = {}) {
@@ -151,8 +152,18 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
   try {
     order.invoiceId = invoice._id;
     await order.save(session ? { session } : undefined);
+
+    const customerInvoiceUpdate = Customer.updateOne(
+      { _id: order.customer.customerId },
+      { $addToSet: { invoices: invoice._id } },
+    );
+    if (session) customerInvoiceUpdate.session(session);
+    await customerInvoiceUpdate;
   } catch (error) {
-    if (!session) await Invoice.deleteOne({ _id: invoice._id });
+    if (!session) {
+      await Invoice.deleteOne({ _id: invoice._id });
+      await Order.updateOne({ _id: order._id }, { $set: { invoiceId: null } });
+    }
     throw error;
   }
 
