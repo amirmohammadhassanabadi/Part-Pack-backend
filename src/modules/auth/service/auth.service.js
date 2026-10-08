@@ -14,7 +14,9 @@ async function requestOtp(phone, otpWay) {
 
   const existingOtp = await redis.get(`otp:${phone}`);
   if (existingOtp) {
-    throw new Error("OTP already sent. Please wait 2 minutes before requesting again.");
+    throw new Error(
+      "OTP already sent. Please wait 2 minutes before requesting again.",
+    );
   }
 
   const otp = crypto.randomInt(100000, 999999).toString();
@@ -54,7 +56,11 @@ async function verifyOtp(phone, code) {
   }
 
   const accessToken = jwt.sign(
-    { userId: authUser.refId, role: authUser.role, refModel: authUser.refModel },
+    {
+      userId: authUser.refId,
+      role: authUser.role,
+      refModel: authUser.refModel,
+    },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
@@ -62,7 +68,12 @@ async function verifyOtp(phone, code) {
   const newRefreshToken = crypto.randomBytes(64).toString("hex");
 
   // store Auth._id in Redis — used internally to re-fetch Auth document on refresh
-  await redis.set(`refresh:${newRefreshToken}`, authUser._id.toString(), "EX", REFRESH_TOKEN_TTL);
+  await redis.set(
+    `refresh:${newRefreshToken}`,
+    authUser._id.toString(),
+    "EX",
+    REFRESH_TOKEN_TTL,
+  );
 
   return {
     registered: true,
@@ -92,7 +103,11 @@ async function refreshToken(token) {
   }
 
   const accessToken = jwt.sign(
-    { userId: authUser.refId, role: authUser.role, refModel: authUser.refModel },
+    {
+      userId: authUser.refId,
+      role: authUser.role,
+      refModel: authUser.refModel,
+    },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
@@ -121,7 +136,11 @@ async function devLogin(phone, code) {
   if (!authUser) throw new Error("Permission denied.");
 
   const accessToken = jwt.sign(
-    { userId: authUser.refId, role: authUser.role, refModel: authUser.refModel },
+    {
+      userId: authUser.refId,
+      role: authUser.role,
+      refModel: authUser.refModel,
+    },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: "30d" },
   );

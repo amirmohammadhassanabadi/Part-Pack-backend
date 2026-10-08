@@ -1,9 +1,16 @@
 function buildSupplierInvitationUrl(token) {
-  const baseUrl = process.env.SUPPLIER_PORTAL_URL || "http://localhost:3000/supplier/invitations";
+  const baseUrl =
+    process.env.SUPPLIER_PORTAL_URL ||
+    "http://localhost:3000/supplier/invitations";
   return `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(token)}`;
 }
 
-async function sendSupplierInvitation({ orderId, supplierId, token, expiresAt }) {
+async function sendSupplierInvitation({
+  orderId,
+  supplierId,
+  token,
+  expiresAt,
+}) {
   const url = buildSupplierInvitationUrl(token);
 
   return {

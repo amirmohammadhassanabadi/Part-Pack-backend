@@ -20,9 +20,7 @@ async function createPart(req, res, next) {
     );
 
     if (invalidFields.length > 0) {
-      const error = new Error(
-        `Invalid fields: ${invalidFields.join(", ")}`,
-      );
+      const error = new Error(`Invalid fields: ${invalidFields.join(", ")}`);
       error.statusCode = 400;
       throw error;
     }
@@ -77,14 +75,8 @@ async function createPart(req, res, next) {
       throw error;
     }
 
-    if (
-      compatibility.some(
-        (id) => !mongoose.Types.ObjectId.isValid(id),
-      )
-    ) {
-      const error = new Error(
-        "Each compatibility ID must be a valid ObjectId",
-      );
+    if (compatibility.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      const error = new Error("Each compatibility ID must be a valid ObjectId");
       error.statusCode = 400;
       throw error;
     }
@@ -94,9 +86,7 @@ async function createPart(req, res, next) {
       typeof minPrice !== "number" ||
       minPrice < 0
     ) {
-      const error = new Error(
-        "minPrice is required and must be a number >= 0",
-      );
+      const error = new Error("minPrice is required and must be a number >= 0");
       error.statusCode = 400;
       throw error;
     }
@@ -106,17 +96,13 @@ async function createPart(req, res, next) {
       typeof maxPrice !== "number" ||
       maxPrice < 0
     ) {
-      const error = new Error(
-        "maxPrice is required and must be a number >= 0",
-      );
+      const error = new Error("maxPrice is required and must be a number >= 0");
       error.statusCode = 400;
       throw error;
     }
 
     if (minPrice > maxPrice) {
-      const error = new Error(
-        "minPrice cannot be greater than maxPrice",
-      );
+      const error = new Error("minPrice cannot be greater than maxPrice");
       error.statusCode = 400;
       throw error;
     }
@@ -186,9 +172,7 @@ async function updatePart(req, res, next) {
     );
 
     if (invalidFields.length > 0) {
-      const error = new Error(
-        `Invalid fields: ${invalidFields.join(", ")}`,
-      );
+      const error = new Error(`Invalid fields: ${invalidFields.join(", ")}`);
       error.statusCode = 400;
       throw error;
     }
@@ -210,10 +194,7 @@ async function updatePart(req, res, next) {
       isActive,
     } = req.body;
 
-    if (
-      name !== undefined &&
-      (typeof name !== "string" || !name.trim())
-    ) {
+    if (name !== undefined && (typeof name !== "string" || !name.trim())) {
       const error = new Error("Name must be a non-empty string");
       error.statusCode = 400;
       throw error;
@@ -259,11 +240,7 @@ async function updatePart(req, res, next) {
         throw error;
       }
 
-      if (
-        compatibility.some(
-          (id) => !mongoose.Types.ObjectId.isValid(id),
-        )
-      ) {
+      if (compatibility.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
         const error = new Error(
           "Each compatibility ID must be a valid ObjectId",
         );
@@ -276,9 +253,7 @@ async function updatePart(req, res, next) {
       minPrice !== undefined &&
       (typeof minPrice !== "number" || minPrice < 0)
     ) {
-      const error = new Error(
-        "minPrice must be a number >= 0",
-      );
+      const error = new Error("minPrice must be a number >= 0");
       error.statusCode = 400;
       throw error;
     }
@@ -287,9 +262,7 @@ async function updatePart(req, res, next) {
       maxPrice !== undefined &&
       (typeof maxPrice !== "number" || maxPrice < 0)
     ) {
-      const error = new Error(
-        "maxPrice must be a number >= 0",
-      );
+      const error = new Error("maxPrice must be a number >= 0");
       error.statusCode = 400;
       throw error;
     }
@@ -299,17 +272,12 @@ async function updatePart(req, res, next) {
       maxPrice !== undefined &&
       minPrice > maxPrice
     ) {
-      const error = new Error(
-        "minPrice cannot be greater than maxPrice",
-      );
+      const error = new Error("minPrice cannot be greater than maxPrice");
       error.statusCode = 400;
       throw error;
     }
 
-    if (
-      isActive !== undefined &&
-      typeof isActive !== "boolean"
-    ) {
+    if (isActive !== undefined && typeof isActive !== "boolean") {
       const error = new Error("isActive must be a boolean");
       error.statusCode = 400;
       throw error;
@@ -328,10 +296,7 @@ async function updatePart(req, res, next) {
       ...(isActive !== undefined && { isActive }),
     };
 
-    const part = await partService.updatePart(
-      req.params.id,
-      data,
-    );
+    const part = await partService.updatePart(req.params.id, data);
 
     res.status(200).json({
       success: true,

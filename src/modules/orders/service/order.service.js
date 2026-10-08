@@ -16,7 +16,6 @@ const {
 } = require("../../audit/service/audit.service");
 const { withTransaction } = require("../../../core/database/transaction");
 
-
 // ============================================================
 // Helpers
 // ============================================================
@@ -30,17 +29,14 @@ function normalizeId(id) {
 }
 
 function getPartMap(parts) {
-  return new Map(
-    parts.map((part) => [normalizeId(part._id), part])
-  );
+  return new Map(parts.map((part) => [normalizeId(part._id), part]));
 }
 
 function getCarModelMap(carModels) {
   return new Map(
-    carModels.map((carModel) => [normalizeId(carModel._id), carModel])
+    carModels.map((carModel) => [normalizeId(carModel._id), carModel]),
   );
 }
-
 
 // ============================================================
 // Customer
@@ -119,7 +115,7 @@ async function createOrder(customerId, items) {
 
     if (seenItems.has(key)) {
       throw new Error(
-        `Duplicate order item: part ${item.partId} for car model ${item.carModelId}`
+        `Duplicate order item: part ${item.partId} for car model ${item.carModelId}`,
       );
     }
 
@@ -162,13 +158,12 @@ async function createOrder(customerId, items) {
     // with the selected part.
     const compatible = (part.compatibility || []).some(
       (compatibleCarModelId) =>
-        normalizeId(compatibleCarModelId) ===
-        normalizeId(carModel._id)
+        normalizeId(compatibleCarModelId) === normalizeId(carModel._id),
     );
 
     if (!compatible) {
       throw new Error(
-        `Part "${part.name}" is not compatible with car model "${carModel.name}"`
+        `Part "${part.name}" is not compatible with car model "${carModel.name}"`,
       );
     }
 
@@ -235,7 +230,6 @@ async function createOrder(customerId, items) {
   });
 }
 
-
 /**
  * Get customer's orders.
  */
@@ -244,17 +238,11 @@ async function getCustomerOrders(customerId, options = {}) {
     throw new Error("Invalid customer ID");
   }
 
-  const {
-    page = 1,
-    limit = 20,
-  } = options;
+  const { page = 1, limit = 20 } = options;
 
   const safePage = Math.max(Number(page) || 1, 1);
 
-  const safeLimit = Math.min(
-    Math.max(Number(limit) || 20, 1),
-    100
-  );
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
 
   const skip = (safePage - 1) * safeLimit;
 
@@ -283,7 +271,6 @@ async function getCustomerOrders(customerId, options = {}) {
   };
 }
 
-
 /**
  * Get one order belonging to the customer.
  */
@@ -308,7 +295,6 @@ async function getCustomerOrderById(customerId, orderId) {
   return order;
 }
 
-
 // ============================================================
 // Operator
 // ============================================================
@@ -326,11 +312,7 @@ async function getCustomerOrderById(customerId, orderId) {
  * ?status=cancelled
  */
 async function getOperatorOrders(options = {}) {
-  const {
-    status,
-    page = 1,
-    limit = 20,
-  } = options;
+  const { status, page = 1, limit = 20 } = options;
 
   const filter = {};
 
@@ -353,10 +335,7 @@ async function getOperatorOrders(options = {}) {
 
   const safePage = Math.max(Number(page) || 1, 1);
 
-  const safeLimit = Math.min(
-    Math.max(Number(limit) || 20, 1),
-    100
-  );
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
 
   const skip = (safePage - 1) * safeLimit;
 
@@ -381,7 +360,6 @@ async function getOperatorOrders(options = {}) {
   };
 }
 
-
 /**
  * Get one order for the operator.
  */
@@ -398,7 +376,6 @@ async function getOperatorOrderById(orderId) {
 
   return order;
 }
-
 
 // ============================================================
 // Operator - Confirm order
@@ -419,9 +396,11 @@ function validateFinalOrderItems(order) {
         );
       }
 
-      if (!isValidObjectId(selectedOffer.invitationId) ||
+      if (
+        !isValidObjectId(selectedOffer.invitationId) ||
         !isValidObjectId(selectedOffer.supplierId) ||
-        !isValidObjectId(selectedOffer.offerId)) {
+        !isValidObjectId(selectedOffer.offerId)
+      ) {
         throw new Error(
           `Selected offer for item "${item.title}" is incomplete`,
         );
@@ -443,9 +422,7 @@ function validateFinalOrderItems(order) {
         selectedOffer.unitPrice < 0 ||
         item.unitPrice !== selectedOffer.unitPrice
       ) {
-        throw new Error(
-          `Selected price for item "${item.title}" is invalid`,
-        );
+        throw new Error(`Selected price for item "${item.title}" is invalid`);
       }
     }
 
@@ -454,9 +431,7 @@ function validateFinalOrderItems(order) {
         !item.availability.description ||
         !item.availability.description.trim()
       ) {
-        throw new Error(
-          `Unavailable item "${item.title}" has no description`,
-        );
+        throw new Error(`Unavailable item "${item.title}" has no description`);
       }
 
       if (item.unitPrice !== null && item.unitPrice !== undefined) {
@@ -478,9 +453,7 @@ function validateFinalOrderItems(order) {
   );
 
   if (availableItems.length === 0) {
-    throw new Error(
-      "Order cannot be confirmed because no items are available",
-    );
+    throw new Error("Order cannot be confirmed because no items are available");
   }
 }
 
@@ -510,7 +483,7 @@ async function confirmOrder(orderId, operatorId = null) {
 
     if (order.status !== "offers_ready") {
       throw new Error(
-        `Order cannot be confirmed from status "${order.status}"`
+        `Order cannot be confirmed from status "${order.status}"`,
       );
     }
 
@@ -548,7 +521,6 @@ async function confirmOrder(orderId, operatorId = null) {
   });
 }
 
-
 // ============================================================
 // Cancel order
 // ============================================================
@@ -559,7 +531,10 @@ async function confirmOrder(orderId, operatorId = null) {
  * If a pending Invoice already exists, it is cancelled together
  * with the Order. Paid invoices cannot be cancelled.
  */
-async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) {
+async function cancelOrder(
+  orderId,
+  { reason = null, cancelledBy = null } = {},
+) {
   if (!isValidObjectId(orderId)) {
     throw new Error("Invalid order ID");
   }
@@ -580,7 +555,9 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
     const originalOrder = order.toObject();
     let invoice = null;
     if (order.invoiceId) {
-      const invoiceQuery = Invoice.findById(order.invoiceId).select("_id status");
+      const invoiceQuery = Invoice.findById(order.invoiceId).select(
+        "_id status",
+      );
       if (session) invoiceQuery.session(session);
       invoice = await invoiceQuery;
 
@@ -617,7 +594,8 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
 
     order.status = "cancelled";
     order.cancellation = {
-      reason: typeof reason === "string" && reason.trim() ? reason.trim() : null,
+      reason:
+        typeof reason === "string" && reason.trim() ? reason.trim() : null,
       cancelledBy: isValidObjectId(cancelledBy) ? cancelledBy : null,
       cancelledAt: new Date(),
     };
@@ -632,7 +610,10 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
       if (!session) {
         await Order.replaceOne({ _id: order._id }, originalOrder);
         if (invoice?.status === "pending") {
-          await Invoice.updateOne({ _id: invoice._id }, { $set: { status: "pending" } });
+          await Invoice.updateOne(
+            { _id: invoice._id },
+            { $set: { status: "pending" } },
+          );
         }
       }
       throw error;
@@ -653,7 +634,6 @@ async function cancelOrder(orderId, { reason = null, cancelledBy = null } = {}) 
     return order;
   });
 }
-
 
 // ============================================================
 // Exports

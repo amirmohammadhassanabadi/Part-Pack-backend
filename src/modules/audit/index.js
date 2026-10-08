@@ -1,7 +1,10 @@
 const express = require("express");
 
 const auditService = require("./service/audit.service");
-const { authenticate, authorize } = require("../auth/middleware/auth.middleware");
+const {
+  authenticate,
+  authorize,
+} = require("../auth/middleware/auth.middleware");
 
 const router = express.Router();
 

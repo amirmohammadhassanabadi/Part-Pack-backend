@@ -19,7 +19,7 @@ router.post(
   authenticate,
   authorize("customer"),
   validateBody(validateCreateOrder),
-  orderController.createOrder
+  orderController.createOrder,
 );
 
 // Get customer's orders
@@ -27,7 +27,7 @@ router.get(
   "/my-orders",
   authenticate,
   authorize("customer"),
-  orderController.getCustomerOrders
+  orderController.getCustomerOrders,
 );
 
 // Get one customer's order
@@ -35,7 +35,7 @@ router.get(
   "/my-orders/:id",
   authenticate,
   authorize("customer"),
-  orderController.getCustomerOrderById
+  orderController.getCustomerOrderById,
 );
 
 // Get orders for operator dashboard
@@ -43,7 +43,7 @@ router.get(
   "/operator",
   authenticate,
   authorize("operator"),
-  orderController.getOperatorOrders
+  orderController.getOperatorOrders,
 );
 
 // Review supplier invitations and offers
@@ -74,7 +74,7 @@ router.get(
   "/operator/:id",
   authenticate,
   authorize("operator"),
-  orderController.getOperatorOrderById
+  orderController.getOperatorOrderById,
 );
 
 // Confirm order after customer agrees
@@ -82,7 +82,7 @@ router.post(
   "/operator/:id/confirm",
   authenticate,
   authorize("operator"),
-  orderController.confirmOrder
+  orderController.confirmOrder,
 );
 
 // Cancel order
@@ -90,7 +90,7 @@ router.post(
   "/operator/:id/cancel",
   authenticate,
   authorize("operator"),
-  orderController.cancelOrder
+  orderController.cancelOrder,
 );
 
 module.exports = router;

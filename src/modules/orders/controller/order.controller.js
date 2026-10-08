@@ -9,10 +9,7 @@ async function createOrder(req, res, next) {
   try {
     const { items } = req.body;
 
-    const order = await orderService.createOrder(
-      req.user.userId,
-      items,
-    );
+    const order = await orderService.createOrder(req.user.userId, items);
 
     return res.status(201).json({
       success: true,
@@ -27,13 +24,10 @@ async function getCustomerOrders(req, res, next) {
   try {
     const { page, limit } = req.query;
 
-    const result = await orderService.getCustomerOrders(
-      req.user.userId,
-      {
-        page,
-        limit,
-      }
-    );
+    const result = await orderService.getCustomerOrders(req.user.userId, {
+      page,
+      limit,
+    });
 
     return res.status(200).json({
       success: true,
@@ -49,10 +43,7 @@ async function getCustomerOrderById(req, res, next) {
   try {
     const { id } = req.params;
 
-    const order = await orderService.getCustomerOrderById(
-      req.user.userId,
-      id
-    );
+    const order = await orderService.getCustomerOrderById(req.user.userId, id);
 
     return res.status(200).json({
       success: true,
@@ -62,7 +53,6 @@ async function getCustomerOrderById(req, res, next) {
     next(error);
   }
 }
-
 
 // ============================================================
 // Operator
@@ -90,7 +80,9 @@ async function getOperatorOrders(req, res, next) {
 
 async function getOperatorOrderInvitations(req, res, next) {
   try {
-    const result = await invitationService.getOperatorOrderInvitations(req.params.id);
+    const result = await invitationService.getOperatorOrderInvitations(
+      req.params.id,
+    );
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -169,7 +161,6 @@ async function cancelOrder(req, res, next) {
     next(error);
   }
 }
-
 
 module.exports = {
   // Customer

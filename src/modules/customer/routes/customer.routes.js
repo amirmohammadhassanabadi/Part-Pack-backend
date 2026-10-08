@@ -6,10 +6,12 @@ const {
   authorize,
   authorizeCustomerOwnership,
 } = require("../../auth/middleware/auth.middleware");
-const { validateBody, validateCustomer } = require("../../../core/validation/validate");
+const {
+  validateBody,
+  validateCustomer,
+} = require("../../../core/validation/validate");
 
 const router = express.Router();
-
 
 // ============================================================
 // Public
@@ -19,9 +21,8 @@ const router = express.Router();
 router.post(
   "/",
   validateBody(validateCustomer),
-  customerController.createCustomer
+  customerController.createCustomer,
 );
-
 
 // ============================================================
 // Admin + Operator
@@ -32,9 +33,8 @@ router.get(
   "/",
   authenticate,
   authorize("admin", "operator"),
-  customerController.getAllCustomers
+  customerController.getAllCustomers,
 );
-
 
 // ============================================================
 // Admin + Operator + Customer
@@ -46,9 +46,8 @@ router.get(
   authenticate,
   authorize("admin", "operator", "customer"),
   authorizeCustomerOwnership,
-  customerController.getCustomerById
+  customerController.getCustomerById,
 );
-
 
 // Add address
 router.post(
@@ -56,9 +55,8 @@ router.post(
   authenticate,
   authorize("admin", "operator", "customer"),
   authorizeCustomerOwnership,
-  customerController.addAddressToCustomer
+  customerController.addAddressToCustomer,
 );
-
 
 // Add car
 router.post(
@@ -66,9 +64,8 @@ router.post(
   authenticate,
   authorize("admin", "operator", "customer"),
   authorizeCustomerOwnership,
-  customerController.addCarToCustomer
+  customerController.addCarToCustomer,
 );
-
 
 // ============================================================
 // Internal operations
@@ -78,6 +75,5 @@ router.post(
 // addInvoiceToCustomer()
 //
 // These are not exposed as HTTP routes.
-
 
 module.exports = router;

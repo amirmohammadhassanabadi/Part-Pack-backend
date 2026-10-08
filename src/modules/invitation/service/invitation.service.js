@@ -6,7 +6,9 @@ const Order = require("../../orders/model/order.model");
 const Supplier = require("../../suppliers/model/supplier.model");
 const supplierService = require("../../suppliers/service/supplier.service");
 const { recordEvent } = require("../../audit/service/audit.service");
-const { sendSupplierInvitation } = require("../../notification/service/notification.service");
+const {
+  sendSupplierInvitation,
+} = require("../../notification/service/notification.service");
 const { withTransaction } = require("../../../core/database/transaction");
 
 const INVITATION_TTL_MS = 30 * 60 * 1000;
@@ -35,10 +37,9 @@ function normalizeAssignments(assignments) {
     assertObjectId(assignment.carModelId, "car model ID");
     assertObjectId(assignment.categoryId, "category ID");
 
-    const itemKey = assignment.itemKey || buildItemKey(
-      assignment.partId,
-      assignment.carModelId,
-    );
+    const itemKey =
+      assignment.itemKey ||
+      buildItemKey(assignment.partId, assignment.carModelId);
 
     unique.set(itemKey, {
       itemKey,
@@ -53,7 +54,12 @@ function normalizeAssignments(assignments) {
   return [...unique.values()];
 }
 
-async function createInvitation({ orderId, supplierId, assignments, session = null }) {
+async function createInvitation({
+  orderId,
+  supplierId,
+  assignments,
+  session = null,
+}) {
   assertObjectId(orderId, "order ID");
   assertObjectId(supplierId, "supplier ID");
 
@@ -220,7 +226,11 @@ async function findSuppliersForOrder(orderId, session = null) {
       }
 
       const supplierAssignments = suppliersById.get(supplierId).assignments;
-      if (!supplierAssignments.some((assignment) => assignment.itemKey === itemKey)) {
+      if (
+        !supplierAssignments.some(
+          (assignment) => assignment.itemKey === itemKey,
+        )
+      ) {
         supplierAssignments.push({
           itemKey,
           partId: item.partId,
@@ -276,7 +286,8 @@ async function createInvitationsForOrder(orderId, { session = null } = {}) {
     });
   }
 
-  order.status = created.length > 0 ? "supplier_invitation" : "collecting_offers";
+  order.status =
+    created.length > 0 ? "supplier_invitation" : "collecting_offers";
   await order.save(session ? { session } : undefined);
 
   return created;
@@ -360,13 +371,24 @@ function validateOfferPayload(payload = {}) {
       error.statusCode = 400;
       throw error;
     }
-    if (typeof payload.unitPrice !== "number" || !Number.isFinite(payload.unitPrice) || payload.unitPrice < 0) {
-      const error = new Error("A valid unitPrice is required for an available offer");
+    if (
+      typeof payload.unitPrice !== "number" ||
+      !Number.isFinite(payload.unitPrice) ||
+      payload.unitPrice < 0
+    ) {
+      const error = new Error(
+        "A valid unitPrice is required for an available offer",
+      );
       error.statusCode = 400;
       throw error;
     }
-    if (!Number.isInteger(payload.availableQuantity) || payload.availableQuantity < 1) {
-      const error = new Error("availableQuantity must be a positive integer for an available offer");
+    if (
+      !Number.isInteger(payload.availableQuantity) ||
+      payload.availableQuantity < 1
+    ) {
+      const error = new Error(
+        "availableQuantity must be a positive integer for an available offer",
+      );
       error.statusCode = 400;
       throw error;
     }
@@ -382,7 +404,8 @@ function validateOfferPayload(payload = {}) {
     manufacturerName: availability === "available" ? manufacturerName : null,
     partNumber: availability === "available" ? partNumber : null,
     unitPrice: availability === "available" ? payload.unitPrice : null,
-    availableQuantity: availability === "available" ? payload.availableQuantity : 0,
+    availableQuantity:
+      availability === "available" ? payload.availableQuantity : 0,
     description,
   };
 }
@@ -590,7 +613,10 @@ async function getOperatorOfferBoard(orderId) {
   }
 
   const items = order.items.map((item) => {
-    const itemKey = buildItemKey(item.partId?._id || item.partId, item.carModelId?._id || item.carModelId);
+    const itemKey = buildItemKey(
+      item.partId?._id || item.partId,
+      item.carModelId?._id || item.carModelId,
+    );
     const offers = offersByItemKey.get(itemKey) || [];
 
     return {
@@ -614,7 +640,12 @@ async function getOperatorOfferBoard(orderId) {
   };
 }
 
-async function selectOrderOffersInTransaction(orderId, selections, operatorId, session) {
+async function selectOrderOffersInTransaction(
+  orderId,
+  selections,
+  operatorId,
+  session,
+) {
   assertObjectId(orderId, "order ID");
   assertObjectId(operatorId, "operator ID");
 
@@ -662,8 +693,13 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
       throw error;
     }
 
-    if (!orderItemsByKey.has(selection.itemKey) || decisionsByKey.has(selection.itemKey)) {
-      const error = new Error(`Invalid or duplicate order item: ${selection.itemKey}`);
+    if (
+      !orderItemsByKey.has(selection.itemKey) ||
+      decisionsByKey.has(selection.itemKey)
+    ) {
+      const error = new Error(
+        `Invalid or duplicate order item: ${selection.itemKey}`,
+      );
       error.statusCode = 400;
       throw error;
     }
@@ -685,7 +721,9 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
       }
     } else {
       if (!hasOfferId) {
-        const error = new Error("A valid offerId is required for an available item");
+        const error = new Error(
+          "A valid offerId is required for an available item",
+        );
         error.statusCode = 400;
         throw error;
       }
@@ -706,7 +744,9 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
   if (session) invitationsQuery.session(session);
   const invitations = await invitationsQuery;
   const originalOrder = order.toObject();
-  const originalInvitations = invitations.map((invitation) => invitation.toObject());
+  const originalInvitations = invitations.map((invitation) =>
+    invitation.toObject(),
+  );
   const offersById = new Map();
 
   for (const invitation of invitations) {
@@ -734,7 +774,9 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
 
     const offerRecord = offersById.get(String(selection.offerId));
     if (!offerRecord || offerRecord.invitationItem.itemKey !== itemKey) {
-      const error = new Error("Offer does not belong to the selected order item");
+      const error = new Error(
+        "Offer does not belong to the selected order item",
+      );
       error.statusCode = 400;
       throw error;
     }
@@ -746,9 +788,10 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
       throw error;
     }
 
-    const selectedQuantity = selection.selectedQuantity === undefined
-      ? offer.availableQuantity
-      : selection.selectedQuantity;
+    const selectedQuantity =
+      selection.selectedQuantity === undefined
+        ? offer.availableQuantity
+        : selection.selectedQuantity;
 
     if (
       !Number.isInteger(selectedQuantity) ||
@@ -804,15 +847,19 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
 
   order.status = "offers_ready";
   try {
-    await Promise.all(invitations.map((invitation) =>
-      invitation.save(session ? { session } : undefined),
-    ));
+    await Promise.all(
+      invitations.map((invitation) =>
+        invitation.save(session ? { session } : undefined),
+      ),
+    );
     await order.save(session ? { session } : undefined);
   } catch (error) {
     if (!session) {
-      await Promise.all(originalInvitations.map((snapshot) =>
-        Invitation.replaceOne({ _id: snapshot._id }, snapshot),
-      ));
+      await Promise.all(
+        originalInvitations.map((snapshot) =>
+          Invitation.replaceOne({ _id: snapshot._id }, snapshot),
+        ),
+      );
       await Order.replaceOne({ _id: originalOrder._id }, originalOrder);
     }
     throw error;
@@ -826,9 +873,10 @@ async function selectOrderOffersInTransaction(orderId, selections, operatorId, s
     metadata: {
       selections: [...decisionsByKey.entries()].map(([itemKey, selection]) => ({
         itemKey,
-        availability: selection.availability === "unavailable"
-          ? "unavailable"
-          : "available",
+        availability:
+          selection.availability === "unavailable"
+            ? "unavailable"
+            : "available",
         offerId: selection.offerId || null,
         selectedQuantity: selection.selectedQuantity || null,
       })),

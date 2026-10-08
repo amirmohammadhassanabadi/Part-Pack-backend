@@ -8,8 +8,18 @@ const {
   validateOtpVerification,
 } = require("../../../core/validation/validate");
 
-router.post("/request-otp", otpRateLimiter, validateBody(validateOtpRequest), authController.requestOtp);
-router.post("/verify-otp", otpRateLimiter, validateBody(validateOtpVerification), authController.verifyOtp);
+router.post(
+  "/request-otp",
+  otpRateLimiter,
+  validateBody(validateOtpRequest),
+  authController.requestOtp,
+);
+router.post(
+  "/verify-otp",
+  otpRateLimiter,
+  validateBody(validateOtpVerification),
+  authController.verifyOtp,
+);
 router.post("/refresh", authController.refreshToken);
 router.post("/logout", authController.logout);
 // --------------------------------------------

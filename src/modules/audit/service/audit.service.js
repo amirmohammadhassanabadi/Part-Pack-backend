@@ -24,7 +24,9 @@ async function recordEvent({
       actorType,
       actorId: mongoose.isValidObjectId(actorId) ? actorId : null,
       supplierId: mongoose.isValidObjectId(supplierId) ? supplierId : null,
-      invitationId: mongoose.isValidObjectId(invitationId) ? invitationId : null,
+      invitationId: mongoose.isValidObjectId(invitationId)
+        ? invitationId
+        : null,
       invoiceId: mongoose.isValidObjectId(invoiceId) ? invoiceId : null,
       metadata,
     };

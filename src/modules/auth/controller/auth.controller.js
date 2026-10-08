@@ -34,7 +34,9 @@ async function refreshToken(req, res, next) {
   try {
     const token = req.body?.refreshToken || req.headers["x-refresh-token"];
     if (!token) {
-      return res.status(401).json({ success: false, message: "No refresh token provided." });
+      return res
+        .status(401)
+        .json({ success: false, message: "No refresh token provided." });
     }
 
     const result = await authService.refreshToken(token);
@@ -49,7 +51,9 @@ async function logout(req, res, next) {
   try {
     const token = req.body?.refreshToken || req.headers["x-refresh-token"];
     if (!token) {
-      return res.status(401).json({ success: false, message: "No refresh token provided." });
+      return res
+        .status(401)
+        .json({ success: false, message: "No refresh token provided." });
     }
 
     await authService.logout(token);

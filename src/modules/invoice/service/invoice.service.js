@@ -24,7 +24,7 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
 
   if (order.status !== "confirmed") {
     const error = new Error(
-      `Invoice can only be created for a confirmed order`
+      `Invoice can only be created for a confirmed order`,
     );
     error.statusCode = 400;
     throw error;
@@ -46,7 +46,7 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
 
   if (availableItems.length === 0) {
     const error = new Error(
-      "Cannot create invoice because no items are available"
+      "Cannot create invoice because no items are available",
     );
     error.statusCode = 400;
     throw error;
@@ -80,7 +80,10 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
       throw error;
     }
 
-    if (!isAvailable && (!item.availability.description || !item.availability.description.trim())) {
+    if (
+      !isAvailable &&
+      (!item.availability.description || !item.availability.description.trim())
+    ) {
       const error = new Error(
         `Unavailable item "${item.title}" has no description`,
       );
@@ -128,10 +131,7 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
     };
   });
 
-  const total = lines.reduce(
-    (sum, line) => sum + line.lineTotal,
-    0
-  );
+  const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
 
   const invoicePayload = {
     orderId: order._id,
@@ -256,7 +256,7 @@ async function markInvoiceAsPaid(id, actorId = null, { session = null } = {}) {
 
   if (invoice.status !== "pending") {
     const error = new Error(
-      `Invoice cannot be paid from status "${invoice.status}"`
+      `Invoice cannot be paid from status "${invoice.status}"`,
     );
     error.statusCode = 400;
     throw error;
@@ -296,7 +296,7 @@ async function cancelInvoice(id, actorId = null, { session = null } = {}) {
 
   if (invoice.status !== "pending") {
     const error = new Error(
-      `Invoice cannot be cancelled from status "${invoice.status}"`
+      `Invoice cannot be cancelled from status "${invoice.status}"`,
     );
     error.statusCode = 400;
     throw error;

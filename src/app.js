@@ -26,11 +26,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec)
-);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // routes
 app.get("/", (req, res) => {
@@ -54,7 +50,6 @@ app.use("/api/v1/invoices", invoiceRouter);
 app.use("/api/v1/invitations", invitationRouter);
 app.use("/api/v1/audit", auditRouter);
 
-// ÙØ¹Ø§Ù„â€ŒØ³Ø§Ø²ÛŒ Ù…Ø¯ÛŒØ±ÛŒØª Ø®Ø·Ø§ÛŒ Ù…Ø±Ú©Ø²ÛŒ
 app.use(errorHandler);
 
 module.exports = app;

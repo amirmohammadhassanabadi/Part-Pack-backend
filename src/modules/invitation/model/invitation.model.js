@@ -186,9 +186,6 @@ const invitationSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-invitationSchema.index(
-  { orderId: 1, supplierId: 1 },
-  { unique: true },
-);
+invitationSchema.index({ orderId: 1, supplierId: 1 }, { unique: true });
 
 module.exports = mongoose.model("Invitation", invitationSchema);

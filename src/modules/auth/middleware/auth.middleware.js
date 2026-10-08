@@ -13,10 +13,7 @@ function authenticate(req, res, next) {
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_ACCESS_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
     req.user = decoded;
 
@@ -28,7 +25,6 @@ function authenticate(req, res, next) {
     });
   }
 }
-
 
 function authorize(...roles) {
   return (req, res, next) => {
@@ -42,7 +38,6 @@ function authorize(...roles) {
     next();
   };
 }
-
 
 /**
  * Make sure a customer can only access
@@ -75,7 +70,6 @@ function authorizeCustomerOwnership(req, res, next) {
     message: "Access denied.",
   });
 }
-
 
 module.exports = {
   authenticate,

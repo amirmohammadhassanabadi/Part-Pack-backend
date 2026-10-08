@@ -141,19 +141,12 @@ async function updatePart(id, data) {
     }
   }
 
-  if (
-    data.minPrice !== undefined ||
-    data.maxPrice !== undefined
-  ) {
+  if (data.minPrice !== undefined || data.maxPrice !== undefined) {
     const minPrice =
-      data.minPrice !== undefined
-        ? data.minPrice
-        : existingPart.priceStats.min;
+      data.minPrice !== undefined ? data.minPrice : existingPart.priceStats.min;
 
     const maxPrice =
-      data.maxPrice !== undefined
-        ? data.maxPrice
-        : existingPart.priceStats.max;
+      data.maxPrice !== undefined ? data.maxPrice : existingPart.priceStats.max;
 
     if (minPrice > maxPrice) {
       throw new Error("minPrice cannot be greater than maxPrice");

@@ -4,7 +4,14 @@ const orderSchema = new mongoose.Schema(
   {
     status: {
       type: String,
-      enum: ["pending", "supplier_invitation", "collecting_offers", "offers_ready", "confirmed", "cancelled"],
+      enum: [
+        "pending",
+        "supplier_invitation",
+        "collecting_offers",
+        "offers_ready",
+        "confirmed",
+        "cancelled",
+      ],
       default: "pending",
       index: true,
     },
@@ -165,7 +172,6 @@ const orderSchema = new mongoose.Schema(
         _id: false,
       },
     ],
-
   },
   { timestamps: true },
 );

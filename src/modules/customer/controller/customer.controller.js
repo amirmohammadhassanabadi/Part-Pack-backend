@@ -20,7 +20,10 @@ function validateCreateCustomerBody(body) {
   }
 
   if (typeof fullName !== "string" || fullName.length < 3) {
-    throw buildError("fullName must be a string with at least 3 characters", 400);
+    throw buildError(
+      "fullName must be a string with at least 3 characters",
+      400,
+    );
   }
 
   if (!phone) {
@@ -142,7 +145,10 @@ async function getAllCustomers(req, res, next) {
     }
 
     if (req.query.fullName) {
-      filters.fullName = { $regex: normalizeString(req.query.fullName), $options: "i" };
+      filters.fullName = {
+        $regex: normalizeString(req.query.fullName),
+        $options: "i",
+      };
     }
 
     if (req.query.isActive !== undefined) {
@@ -173,7 +179,10 @@ async function addAddressToCustomer(req, res, next) {
     const customerId = validateObjectIdField(req.params.id, "customer id");
     const addressPayload = validateAddressInput(req.body);
 
-    const customer = await customerService.addAddress(customerId, addressPayload);
+    const customer = await customerService.addAddress(
+      customerId,
+      addressPayload,
+    );
     return res.status(200).json(customer);
   } catch (error) {
     return next(error);
@@ -185,7 +194,10 @@ async function addCarToCustomer(req, res, next) {
     const customerId = validateObjectIdField(req.params.id, "customer id");
     const carPayload = validateCarInput(req.body);
 
-    const customer = await customerService.addCarToCustomer(customerId, carPayload);
+    const customer = await customerService.addCarToCustomer(
+      customerId,
+      carPayload,
+    );
     return res.status(200).json(customer);
   } catch (error) {
     return next(error);
@@ -197,7 +209,10 @@ async function addOrderToCustomer(req, res, next) {
     const customerId = validateObjectIdField(req.params.id, "customer id");
     const orderId = validateObjectIdField(req.body.orderId, "orderId");
 
-    const customer = await customerService.addOrderToCustomer(customerId, orderId);
+    const customer = await customerService.addOrderToCustomer(
+      customerId,
+      orderId,
+    );
     return res.status(200).json(customer);
   } catch (error) {
     return next(error);
@@ -209,7 +224,10 @@ async function addInvoiceToCustomer(req, res, next) {
     const customerId = validateObjectIdField(req.params.id, "customer id");
     const invoiceId = validateObjectIdField(req.body.invoiceId, "invoiceId");
 
-    const customer = await customerService.addInvoiceToCustomer(customerId, invoiceId);
+    const customer = await customerService.addInvoiceToCustomer(
+      customerId,
+      invoiceId,
+    );
     return res.status(200).json(customer);
   } catch (error) {
     return next(error);
