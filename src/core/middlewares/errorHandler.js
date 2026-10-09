@@ -9,6 +9,8 @@ const errorHandler = (err, req, res, next) => {
     message: err.message,
   };
 
+  if (err.code) response.code = err.code;
+
   // اگر خطای ولیدیشن (از سمت Validator ما) باشد، لیست ارورها را اضافه می‌کنیم
   if (err.errors) {
     response.errors = err.errors;

@@ -18,6 +18,7 @@ const orderRouter = require("./modules/orders");
 const invoiceRouter = require("./modules/invoice");
 const invitationRouter = require("./modules/invitation");
 const auditRouter = require("./modules/audit");
+const paymentRouter = require("./modules/payment");
 
 // App
 const app = express();
@@ -49,6 +50,7 @@ app.use("/api/v1/orders", orderRouter);
 app.use("/api/v1/invoices", invoiceRouter);
 app.use("/api/v1/invitations", invitationRouter);
 app.use("/api/v1/audit", auditRouter);
+app.use("/api/v1/payments", paymentRouter);
 
 app.use(errorHandler);
 

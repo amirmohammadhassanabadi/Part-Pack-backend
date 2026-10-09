@@ -30,6 +30,13 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    paymentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      default: null,
+      index: true,
+    },
+
     shippingAddress: {
       addressId: {
         type: mongoose.Schema.Types.ObjectId,
