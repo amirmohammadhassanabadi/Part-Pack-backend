@@ -19,6 +19,7 @@ const auditEventSchema = new mongoose.Schema(
         "offer_updated",
         "offer_deleted",
         "offers_selected",
+        "offers_shortlisted",
         "order_confirmed",
         "order_cancelled",
         "invoice_created",

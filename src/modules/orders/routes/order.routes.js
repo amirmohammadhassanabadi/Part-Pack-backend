@@ -61,6 +61,22 @@ router.get(
   orderController.getOperatorOfferBoard,
 );
 
+// Add an offer supplied directly by the operator.
+router.post(
+  "/operator/:id/offers",
+  authenticate,
+  authorize("operator"),
+  orderController.createOperatorOffer,
+);
+
+// Apply markup and publish the selected offers for customer selection.
+router.post(
+  "/operator/:id/shortlist-offers",
+  authenticate,
+  authorize("operator"),
+  orderController.shortlistOffers,
+);
+
 // Select one supplier offer per item, or mark an item unavailable
 router.post(
   "/operator/:id/select-offers",
