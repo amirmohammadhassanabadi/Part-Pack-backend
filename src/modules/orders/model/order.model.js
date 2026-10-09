@@ -30,6 +30,26 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    shippingAddress: {
+      addressId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+      },
+      title: { type: String, trim: true, default: null },
+      province: { type: String, trim: true, default: null },
+      city: { type: String, trim: true, default: null },
+      line: { type: String, trim: true, default: null },
+      postalCode: { type: String, trim: true, default: null },
+      selectedAt: { type: Date, default: null },
+    },
+
+    checkout: {
+      subtotal: { type: Number, min: 0, default: null },
+      total: { type: Number, min: 0, default: null },
+      currency: { type: String, trim: true, default: "IRR" },
+      preparedAt: { type: Date, default: null },
+    },
+
     cancellation: {
       reason: {
         type: String,

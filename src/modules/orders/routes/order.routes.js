@@ -52,6 +52,13 @@ router.post(
   orderController.selectCustomerOffers,
 );
 
+router.post(
+  "/my-orders/:id/checkout",
+  authenticate,
+  authorize("customer"),
+  orderController.prepareCheckout,
+);
+
 // Get orders for operator dashboard
 router.get(
   "/operator",

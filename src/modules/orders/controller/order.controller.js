@@ -1,6 +1,7 @@
 const orderService = require("../service/order.service");
 const invitationService = require("../../invitation/service/invitation.service");
 const orderOfferService = require("../service/orderOffer.service");
+const checkoutService = require("../service/checkout.service");
 
 // ============================================================
 // Customer
@@ -75,6 +76,19 @@ async function selectCustomerOffers(req, res, next) {
       req.user.userId,
     );
     return res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function prepareCheckout(req, res, next) {
+  try {
+    const result = await checkoutService.prepareCheckout(
+      req.params.id,
+      req.user.userId,
+      req.body,
+    );
+    return res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
@@ -221,6 +235,7 @@ module.exports = {
   getCustomerOrderById,
   getCustomerOfferBoard,
   selectCustomerOffers,
+  prepareCheckout,
 
   // Operator
   getOperatorOrders,

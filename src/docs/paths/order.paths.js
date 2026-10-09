@@ -216,6 +216,37 @@
 
 /**
  * @openapi
+ * /orders/my-orders/{id}/checkout:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Prepare an order for payment
+ *     description: Selects an existing customer address or creates a new saved address, stores an immutable address snapshot on the order, and returns the payment amount. No payment is performed by this endpoint.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { $ref: '#/components/schemas/ObjectId' } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 required: [addressId]
+ *                 properties:
+ *                   addressId: { $ref: '#/components/schemas/ObjectId' }
+ *               - type: object
+ *                 required: [address]
+ *                 properties:
+ *                   address: { $ref: '#/components/schemas/CustomerAddress' }
+ *     responses:
+ *       200: { description: Checkout prepared and payment amount calculated }
+ *       400: { description: Invalid address, order state, or selected pricing }
+ *       401: { description: Authentication required }
+ *       404: { description: Order, customer, or address not found }
+ */
+
+/**
+ * @openapi
  * /orders/operator/{id}/invitations:
  *   get:
  *     tags: [Orders]

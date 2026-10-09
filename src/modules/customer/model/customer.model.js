@@ -34,7 +34,6 @@ const customerSchema = new mongoose.Schema(
         city: { type: String, required: true, trim: true },
         line: { type: String, required: true, trim: true },
         postalCode: { type: String, trim: true },
-        _id: false,
       },
     ],
 
