@@ -38,6 +38,20 @@ router.get(
   orderController.getCustomerOrderById,
 );
 
+router.get(
+  "/my-orders/:id/offers",
+  authenticate,
+  authorize("customer"),
+  orderController.getCustomerOfferBoard,
+);
+
+router.post(
+  "/my-orders/:id/select-offers",
+  authenticate,
+  authorize("customer"),
+  orderController.selectCustomerOffers,
+);
+
 // Get orders for operator dashboard
 router.get(
   "/operator",

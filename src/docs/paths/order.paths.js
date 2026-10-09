@@ -136,6 +136,86 @@
 
 /**
  * @openapi
+ * /orders/my-orders/{id}/offers:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Get offers available to the customer
+ *     description: Returns only operator-shortlisted offers. Supplier identity, supplier price and markup details are never returned.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { $ref: '#/components/schemas/ObjectId' } }
+ *     responses:
+ *       200:
+ *         description: Customer-facing offer board
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderId: { $ref: '#/components/schemas/ObjectId' }
+ *                     orderStatus: { type: string, example: customer_selection }
+ *                     items:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           itemKey: { type: string }
+ *                           title: { type: string }
+ *                           requestedQuantity: { type: integer }
+ *                           offers:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 _id: { $ref: '#/components/schemas/ObjectId' }
+ *                                 brandName: { type: string }
+ *                                 manufacturerName: { type: string, nullable: true }
+ *                                 partNumber: { type: string, nullable: true }
+ *                                 availableQuantity: { type: integer }
+ *                                 customerUnitPrice: { type: number }
+ *       400: { description: Offers are not ready for customer selection }
+ *       401: { description: Authentication required }
+ *       404: { description: Order not found }
+ *
+ * /orders/my-orders/{id}/select-offers:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Select one offer per order item
+ *     description: The customer selects exactly one shortlisted offer for every order item. The order then moves to awaiting_payment.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { $ref: '#/components/schemas/ObjectId' } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [selections]
+ *             properties:
+ *               selections:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required: [itemKey, offerId]
+ *                   properties:
+ *                     itemKey: { type: string }
+ *                     offerId: { $ref: '#/components/schemas/ObjectId' }
+ *                     selectedQuantity: { type: integer, minimum: 1 }
+ *     responses:
+ *       200: { description: Customer offers selected and payment preparation opened }
+ *       400: { description: Invalid or incomplete selection }
+ *       401: { description: Authentication required }
+ *       404: { description: Order or offer not found }
+ */
+
+/**
+ * @openapi
  * /orders/operator/{id}/invitations:
  *   get:
  *     tags: [Orders]

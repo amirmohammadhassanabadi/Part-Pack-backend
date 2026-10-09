@@ -55,6 +55,31 @@ async function getCustomerOrderById(req, res, next) {
   }
 }
 
+async function getCustomerOfferBoard(req, res, next) {
+  try {
+    const result = await orderOfferService.getCustomerOfferBoard(
+      req.params.id,
+      req.user.userId,
+    );
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function selectCustomerOffers(req, res, next) {
+  try {
+    const order = await orderOfferService.selectCustomerOffers(
+      req.params.id,
+      req.body?.selections,
+      req.user.userId,
+    );
+    return res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // ============================================================
 // Operator
 // ============================================================
@@ -194,6 +219,8 @@ module.exports = {
   createOrder,
   getCustomerOrders,
   getCustomerOrderById,
+  getCustomerOfferBoard,
+  selectCustomerOffers,
 
   // Operator
   getOperatorOrders,

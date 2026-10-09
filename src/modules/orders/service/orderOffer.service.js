@@ -317,12 +317,175 @@ async function shortlistOffers(orderId, selections, operatorId) {
   };
 }
 
-async function getCustomerOfferBoard(orderId) {
+async function getCustomerOfferBoard(orderId, customerId) {
   assertObjectId(orderId, "order ID");
-  return OrderOffer.find({ orderId, status: "shortlisted" })
-    .select("orderId itemKey partId carModelId categoryId title availability brandName manufacturerName partNumber description requestedQuantity availableQuantity selectedQuantity customerUnitPrice status")
+  assertObjectId(customerId, "customer ID");
+  const order = await Order.findOne({
+    _id: orderId,
+    "customer.customerId": customerId,
+  }).lean();
+  if (!order) {
+    const error = new Error("Order not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (order.status !== "customer_selection") {
+    const error = new Error(`Offers are not available for customer selection from status "${order.status}"`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const offers = await OrderOffer.find({ orderId, status: "shortlisted" })
+    .select("orderId itemKey partId carModelId categoryId title availability brandName description requestedQuantity availableQuantity selectedQuantity customerUnitPrice status")
     .sort({ itemKey: 1, customerUnitPrice: 1 })
     .lean();
+
+  return {
+    orderId: order._id,
+    orderStatus: order.status,
+    items: order.items.map((item) => {
+      const itemKey = buildItemKey(item.partId, item.carModelId);
+      return {
+        itemKey,
+        partId: item.partId,
+        carModelId: item.carModelId,
+        categoryId: item.categoryId,
+        title: item.title,
+        requestedQuantity: item.qty,
+        offers: offers.filter((offer) => offer.itemKey === itemKey),
+      };
+    }),
+  };
+}
+
+async function selectCustomerOffers(orderId, selections, customerId) {
+  assertObjectId(orderId, "order ID");
+  assertObjectId(customerId, "customer ID");
+  const order = await Order.findOne({ _id: orderId, "customer.customerId": customerId });
+  if (!order) {
+    const error = new Error("Order not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (order.status !== "customer_selection") {
+    const error = new Error(`Offers cannot be selected from status "${order.status}"`);
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!Array.isArray(selections)) {
+    const error = new Error("selections must be an array");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const decisions = new Map();
+  for (const selection of selections) {
+    if (!selection?.itemKey || !selection?.offerId || decisions.has(selection.itemKey)) {
+      const error = new Error("Each item must have exactly one unique offer selection");
+      error.statusCode = 400;
+      throw error;
+    }
+    decisions.set(selection.itemKey, selection);
+  }
+
+  const orderOfferIds = [...decisions.values()].map((selection) => selection.offerId);
+  const offers = await OrderOffer.find({
+    orderId: order._id,
+    status: "shortlisted",
+  });
+  const offersById = new Map(offers.map((offer) => [String(offer._id), offer]));
+
+  for (const item of order.items) {
+    const itemKey = buildItemKey(item.partId, item.carModelId);
+    const selection = decisions.get(itemKey);
+    const itemOffers = offers.filter((offer) => offer.itemKey === itemKey);
+    const availableOffers = itemOffers.filter((offer) => offer.availability === "available");
+
+    if (availableOffers.length === 0) {
+      if (selection) {
+        const error = new Error(`Unavailable item "${itemKey}" cannot have a selected offer`);
+        error.statusCode = 400;
+        throw error;
+      }
+      const unavailableOffer = itemOffers.find((offer) => offer.availability === "unavailable");
+      if (!unavailableOffer) {
+        const error = new Error(`No customer-facing decision exists for item "${itemKey}"`);
+        error.statusCode = 400;
+        throw error;
+      }
+      item.availability.status = "unavailable";
+      item.availability.description = unavailableOffer.description;
+      item.unitPrice = null;
+      item.selectedOffer = null;
+      continue;
+    }
+
+    if (!selection) {
+      const error = new Error(`An offer must be selected for item "${itemKey}"`);
+      error.statusCode = 400;
+      throw error;
+    }
+    const offer = offersById.get(String(selection.offerId));
+    if (!offer || offer.itemKey !== itemKey) {
+      const error = new Error(`Selected offer does not belong to item "${itemKey}"`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const selectedQuantity = selection.selectedQuantity ?? offer.selectedQuantity ?? offer.availableQuantity;
+    if (!Number.isInteger(selectedQuantity) || selectedQuantity < 1 || selectedQuantity > item.qty || selectedQuantity > offer.availableQuantity) {
+      const error = new Error(`selectedQuantity for "${itemKey}" is invalid`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    item.availability.status = "available";
+    item.availability.description = offer.description || null;
+    item.unitPrice = offer.customerUnitPrice;
+    item.selectedOffer = {
+      invitationId: offer.invitationId,
+      orderOfferId: offer._id,
+      supplierId: offer.supplierId,
+      offerId: offer.invitationOfferId || offer._id,
+      brandName: offer.brandName,
+      manufacturerName: offer.manufacturerName,
+      partNumber: offer.partNumber,
+      unitPrice: offer.customerUnitPrice,
+      baseUnitPrice: offer.baseUnitPrice,
+      markupPercent: offer.markupPercent,
+      markupAmount: offer.markupAmount,
+      customerUnitPrice: offer.customerUnitPrice,
+      source: offer.source,
+      selectedQuantity,
+      selectedAt: new Date(),
+      selectedBy: customerId,
+    };
+
+    offer.status = "selected";
+    offer.selectedQuantity = selectedQuantity;
+    offer.selectedAt = new Date();
+    offer.selectedBy = customerId;
+    await offer.save();
+  }
+
+  if (!order.items.some((item) => item.availability.status === "available")) {
+    const error = new Error("At least one available item is required to continue to payment");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  order.status = "awaiting_payment";
+  await order.save();
+
+  await recordEvent({
+    orderId: order._id,
+    type: "offers_selected",
+    actorType: "customer",
+    actorId: customerId,
+    metadata: { offerIds: orderOfferIds, phase: "customer_selection" },
+  });
+
+  return order;
 }
 
 module.exports = {
@@ -330,5 +493,6 @@ module.exports = {
   createOperatorOffer,
   shortlistOffers,
   getCustomerOfferBoard,
+  selectCustomerOffers,
 };
 

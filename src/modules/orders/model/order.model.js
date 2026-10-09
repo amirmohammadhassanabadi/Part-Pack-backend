@@ -124,6 +124,12 @@ const orderSchema = new mongoose.Schema(
             default: null,
           },
 
+          orderOfferId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "OrderOffer",
+            default: null,
+          },
+
           supplierId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Supplier",
@@ -156,6 +162,37 @@ const orderSchema = new mongoose.Schema(
           unitPrice: {
             type: Number,
             min: 0,
+            default: null,
+          },
+
+          baseUnitPrice: {
+            type: Number,
+            min: 0,
+            default: null,
+          },
+
+          markupPercent: {
+            type: Number,
+            min: 1,
+            max: 100,
+            default: null,
+          },
+
+          markupAmount: {
+            type: Number,
+            min: 0,
+            default: null,
+          },
+
+          customerUnitPrice: {
+            type: Number,
+            min: 0,
+            default: null,
+          },
+
+          source: {
+            type: String,
+            enum: ["supplier", "operator"],
             default: null,
           },
 
