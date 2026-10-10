@@ -25,4 +25,9 @@ async function verifyPayment(payload) {
   return provider.verifyPayment(payload);
 }
 
-module.exports = { PaymentProviderNotConfiguredError, getConfiguredProvider, createPaymentSession, verifyPayment };
+module.exports = {
+  PaymentProviderNotConfiguredError,
+  getConfiguredProvider,
+  createPaymentSession,
+  verifyPayment,
+};
