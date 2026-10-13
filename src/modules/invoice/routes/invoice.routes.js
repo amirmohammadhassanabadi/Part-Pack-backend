@@ -11,21 +11,21 @@ const router = express.Router();
 router.get(
   "/",
   authenticate,
-  authorize("admin", "operator"),
+  authorize("admin", "operator", "customer"),
   invoiceController.getInvoices,
 );
 
 router.get(
   "/order/:orderId",
   authenticate,
-  authorize("admin", "operator"),
+  authorize("admin", "operator", "customer"),
   invoiceController.getInvoiceByOrderId,
 );
 
 router.get(
   "/:id",
   authenticate,
-  authorize("admin", "operator"),
+  authorize("admin", "operator", "customer"),
   invoiceController.getInvoiceById,
 );
 

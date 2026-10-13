@@ -3,6 +3,9 @@ const Order = require("../model/order.model");
 const Customer = require("../../customer/model/customer.model");
 const { recordEvent } = require("../../audit/service/audit.service");
 const { withTransaction } = require("../../../core/database/transaction");
+const { getDiscount } = require("./discount.service");
+const Payment = require("../../payment/model/payment.model");
+const Invoice = require("../../invoice/model/invoice.model");
 
 function assertObjectId(value, fieldName) {
   if (!mongoose.isValidObjectId(value)) {
@@ -63,6 +66,12 @@ async function prepareCheckout(orderId, customerId, payload = {}) {
       error.statusCode = 400;
       throw error;
     }
+    const pendingPayment = await Payment.exists({ orderId, status: { $in: ["pending", "succeeded"] } }).session(session);
+    if (pendingPayment) {
+      const error = new Error("Checkout cannot be changed after starting payment");
+      error.statusCode = 409;
+      throw error;
+    }
 
     let address;
     let addressId = null;
@@ -115,37 +124,69 @@ async function prepareCheckout(orderId, customerId, payload = {}) {
       subtotal += quantity * unitPrice;
     }
 
+    if (!Number.isSafeInteger(subtotal)) {
+      const error = new Error("Subtotal exceeds the supported amount");
+      error.statusCode = 400;
+      throw error;
+    }
+
     order.shippingAddress = {
       addressId,
       ...address,
       selectedAt: new Date(),
     };
+    const discount = await getDiscount(payload.discountCode, subtotal, session);
     order.checkout = {
       subtotal,
-      total: subtotal,
+      discountCode: discount.code,
+      discountAmount: discount.amount,
+      total: subtotal - discount.amount,
       currency: "IRR",
       preparedAt: new Date(),
     };
     await order.save(session ? { session } : undefined);
+    await Invoice.updateOne(
+      { orderId, status: "pending" },
+      { $set: { subtotal, discountCode: discount.code, discountAmount: discount.amount,
+        total: order.checkout.total, currency: "IRR", shippingAddress: order.toObject().shippingAddress } },
+      { session },
+    );
+    if (order.checkout.total === 0) {
+      const payment = await Payment.findOneAndUpdate(
+        { orderId },
+        { $set: { customerId, amount: 0, currency: "IRR", status: "succeeded", paidAt: new Date(),
+          provider: "unconfigured", authority: null, redirectUrl: null, failureCode: null, failureMessage: null,
+          metadata: { settlement: "zero_total" } } },
+        { upsert: true, returnDocument: "after", session },
+      );
+      await Invoice.updateOne({ orderId, status: "pending" }, { $set: { status: "paid" } }, { session });
+      order.paymentId = payment._id;
+      order.status = "paid";
+      await recordEvent({ orderId, type: "invoice_paid", actorType: "customer", actorId: customerId,
+        invoiceId: order.invoiceId, metadata: { settlement: "zero_total" }, session });
+      await order.save({ session });
+    }
 
     await recordEvent({
       orderId: order._id,
       type: "checkout_prepared",
       actorType: "customer",
       actorId: customerId,
-      metadata: { addressId, subtotal, currency: "IRR" },
+      metadata: { addressId, subtotal, discountCode: discount.code, discountAmount: discount.amount, currency: "IRR" },
       session,
     });
 
     return {
       order,
       payment: {
-        status: "not_started",
-        amount: subtotal,
+        status: order.status === "paid" ? "succeeded" : "not_started",
+        amount: order.checkout.total,
+        subtotal,
+        discountAmount: discount.amount,
         currency: "IRR",
       },
     };
-  });
+  }, { required: true });
 }
 
 module.exports = { prepareCheckout };

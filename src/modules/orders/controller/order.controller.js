@@ -2,6 +2,7 @@ const orderService = require("../service/order.service");
 const invitationService = require("../../invitation/service/invitation.service");
 const orderOfferService = require("../service/orderOffer.service");
 const checkoutService = require("../service/checkout.service");
+const { customerOrderView } = require("../service/orderView");
 
 // ============================================================
 // Customer
@@ -15,7 +16,7 @@ async function createOrder(req, res, next) {
 
     return res.status(201).json({
       success: true,
-      data: order,
+      data: customerOrderView(order),
     });
   } catch (error) {
     next(error);
@@ -24,16 +25,15 @@ async function createOrder(req, res, next) {
 
 async function getCustomerOrders(req, res, next) {
   try {
-    const { page, limit } = req.query;
+    const { page, limit, status, search, from, to } = req.query;
 
     const result = await orderService.getCustomerOrders(req.user.userId, {
-      page,
-      limit,
+      page, limit, status, search, from, to,
     });
 
     return res.status(200).json({
       success: true,
-      data: result.orders,
+      data: result.orders.map(customerOrderView),
       pagination: result.pagination,
     });
   } catch (error) {
@@ -49,7 +49,7 @@ async function getCustomerOrderById(req, res, next) {
 
     return res.status(200).json({
       success: true,
-      data: order,
+      data: customerOrderView(order),
     });
   } catch (error) {
     next(error);
@@ -75,7 +75,7 @@ async function selectCustomerOffers(req, res, next) {
       req.body?.selections,
       req.user.userId,
     );
-    return res.status(200).json({ success: true, data: order });
+    return res.status(200).json({ success: true, data: customerOrderView(order) });
   } catch (error) {
     next(error);
   }
@@ -88,7 +88,7 @@ async function prepareCheckout(req, res, next) {
       req.user.userId,
       req.body,
     );
-    return res.status(200).json({ success: true, data: result });
+    return res.status(200).json({ success: true, data: { ...result, order: customerOrderView(result.order) } });
   } catch (error) {
     next(error);
   }
@@ -100,10 +100,10 @@ async function prepareCheckout(req, res, next) {
 
 async function getOperatorOrders(req, res, next) {
   try {
-    const { status, page, limit } = req.query;
+    const { status, phase, search, from, to, page, limit } = req.query;
 
     const result = await orderService.getOperatorOrders({
-      status,
+      status, phase, search, from, to,
       page,
       limit,
     });

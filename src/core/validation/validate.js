@@ -24,7 +24,7 @@ function validateCreateOrder(body) {
   }
   for (const item of body.items) {
     requiredString(item?.partId, "partId");
-    requiredString(item?.carModelId, "carModelId");
+    // The backend resolves compatibility/matching from the part when no model is supplied.
     if (!Number.isInteger(item.qty) || item.qty < 1) {
       throw new Error("qty must be a positive integer");
     }

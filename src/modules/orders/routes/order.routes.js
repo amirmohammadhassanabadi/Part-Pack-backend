@@ -63,7 +63,7 @@ router.post(
 router.get(
   "/operator",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.getOperatorOrders,
 );
 
@@ -71,14 +71,14 @@ router.get(
 router.get(
   "/operator/:id/invitations",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.getOperatorOrderInvitations,
 );
 
 router.get(
   "/operator/:id/offers",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.getOperatorOfferBoard,
 );
 
@@ -86,7 +86,7 @@ router.get(
 router.post(
   "/operator/:id/offers",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.createOperatorOffer,
 );
 
@@ -94,7 +94,7 @@ router.post(
 router.post(
   "/operator/:id/shortlist-offers",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.shortlistOffers,
 );
 
@@ -102,7 +102,7 @@ router.post(
 router.post(
   "/operator/:id/select-offers",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   validateBody(validateSelectOffers),
   orderController.selectOrderOffers,
 );
@@ -110,7 +110,7 @@ router.post(
 router.get(
   "/operator/:id",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.getOperatorOrderById,
 );
 
@@ -118,7 +118,7 @@ router.get(
 router.post(
   "/operator/:id/confirm",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.confirmOrder,
 );
 
@@ -126,7 +126,7 @@ router.post(
 router.post(
   "/operator/:id/cancel",
   authenticate,
-  authorize("operator"),
+  authorize("admin", "operator"),
   orderController.cancelOrder,
 );
 

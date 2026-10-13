@@ -85,7 +85,7 @@ const invitationItemSchema = new mongoose.Schema(
     carModelId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CarModel",
-      required: true,
+      default: null,
     },
 
     categoryId: {

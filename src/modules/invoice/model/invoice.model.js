@@ -38,7 +38,7 @@ const invoiceSchema = new mongoose.Schema(
         carModelId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "CarModel",
-          required: true,
+          default: null,
         },
         title: {
           type: String,
@@ -105,6 +105,13 @@ const invoiceSchema = new mongoose.Schema(
     total: {
       type: Number,
       required: true,
+    },
+    subtotal: { type: Number, min: 0, default: null },
+    discountCode: { type: String, default: null },
+    discountAmount: { type: Number, min: 0, default: 0 },
+    currency: { type: String, default: "IRR" },
+    shippingAddress: {
+      title: String, province: String, city: String, line: String, postalCode: String,
     },
 
     status: {

@@ -22,7 +22,7 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
     throw error;
   }
 
-  if (order.status !== "confirmed") {
+  if (!["confirmed", "awaiting_payment", "paid"].includes(order.status)) {
     const error = new Error(
       `Invoice can only be created for a confirmed order`,
     );
@@ -144,6 +144,8 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
 
     lines,
     total,
+    subtotal: total,
+    currency: "IRR",
   };
   const [invoice] = session
     ? await Invoice.create([invoicePayload], { session })
@@ -181,8 +183,8 @@ async function createInvoiceFromOrder(orderId, { session = null } = {}) {
   return invoice;
 }
 
-async function getInvoices() {
-  return Invoice.find()
+async function getInvoices(customerId = null) {
+  return Invoice.find(customerId ? { "customer.customerId": customerId } : {})
     .populate("orderId")
     .populate("customer.customerId", "name phone")
     .populate("lines.partId", "name")

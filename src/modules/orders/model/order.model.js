@@ -52,6 +52,8 @@ const orderSchema = new mongoose.Schema(
 
     checkout: {
       subtotal: { type: Number, min: 0, default: null },
+      discountCode: { type: String, default: null },
+      discountAmount: { type: Number, min: 0, default: 0 },
       total: { type: Number, min: 0, default: null },
       currency: { type: String, trim: true, default: "IRR" },
       preparedAt: { type: Date, default: null },
@@ -103,7 +105,7 @@ const orderSchema = new mongoose.Schema(
         carModelId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "CarModel",
-          required: true,
+          default: null,
         },
 
         categoryId: {
@@ -200,7 +202,7 @@ const orderSchema = new mongoose.Schema(
 
           markupPercent: {
             type: Number,
-            min: 1,
+            min: 0,
             max: 100,
             default: null,
           },

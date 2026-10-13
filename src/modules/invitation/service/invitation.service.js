@@ -4,12 +4,13 @@ const mongoose = require("mongoose");
 const Invitation = require("../model/invitation.model");
 const Order = require("../../orders/model/order.model");
 const Supplier = require("../../suppliers/model/supplier.model");
+const CarModel = require("../../vehicles/model/carModel.model");
+const OrderOffer = require("../../orders/model/orderOffer.model");
 const supplierService = require("../../suppliers/service/supplier.service");
 const { recordEvent } = require("../../audit/service/audit.service");
 const {
   sendSupplierInvitation,
 } = require("../../notification/service/notification.service");
-const { withTransaction } = require("../../../core/database/transaction");
 
 const INVITATION_TTL_MS = 30 * 60 * 1000;
 
@@ -22,7 +23,7 @@ function assertObjectId(value, fieldName) {
 }
 
 function buildItemKey(partId, carModelId) {
-  return `${String(partId)}:${String(carModelId)}`;
+  return `${String(partId)}:${carModelId ? String(carModelId) : "*"}`;
 }
 
 function hashToken(token) {
@@ -34,7 +35,7 @@ function normalizeAssignments(assignments) {
 
   for (const assignment of assignments) {
     assertObjectId(assignment.partId, "part ID");
-    assertObjectId(assignment.carModelId, "car model ID");
+    if (assignment.carModelId) assertObjectId(assignment.carModelId, "car model ID");
     assertObjectId(assignment.categoryId, "category ID");
 
     const itemKey =
@@ -188,10 +189,9 @@ async function createInvitation({
 async function findSuppliersForOrder(orderId, session = null) {
   assertObjectId(orderId, "order ID");
 
-  const orderQuery = Order.findById(orderId).populate({
-    path: "items.carModelId",
-    select: "brand name",
-  });
+  const orderQuery = Order.findById(orderId)
+    .populate({ path: "items.carModelId", select: "brand name" })
+    .populate({ path: "items.partId", select: "name compatibility" });
   if (session) orderQuery.session(session);
   const order = await orderQuery;
 
@@ -204,19 +204,23 @@ async function findSuppliersForOrder(orderId, session = null) {
   const suppliersById = new Map();
 
   for (const item of order.items) {
-    if (!item.carModelId || !item.carModelId.brand) {
-      continue;
-    }
-
-    const suppliers = await supplierService.findSuppliersForOrderItem({
-      brandId: item.carModelId.brand,
-      carModelId: item.carModelId._id,
-      categoryId: item.categoryId,
-    });
+    const compatibleModels = item.carModelId
+      ? [item.carModelId]
+      : await CarModel.find({ _id: { $in: item.partId?.compatibility || [] } }).select("brand name").lean();
+    const supplierLists = await Promise.all(
+      compatibleModels.filter((model) => model?.brand).map((model) =>
+        supplierService.findSuppliersForOrderItem({
+          brandId: model.brand,
+          carModelId: model._id,
+          categoryId: item.categoryId,
+        }),
+      ),
+    );
+    const suppliers = [...new Map(supplierLists.flat().map((supplier) => [String(supplier._id), supplier])).values()];
 
     for (const supplier of suppliers) {
       const supplierId = supplier._id.toString();
-      const itemKey = buildItemKey(item.partId, item.carModelId._id);
+      const itemKey = buildItemKey(item.partId?._id || item.partId, item.carModelId?._id || null);
 
       if (!suppliersById.has(supplierId)) {
         suppliersById.set(supplierId, {
@@ -233,8 +237,8 @@ async function findSuppliersForOrder(orderId, session = null) {
       ) {
         supplierAssignments.push({
           itemKey,
-          partId: item.partId,
-          carModelId: item.carModelId._id,
+          partId: item.partId?._id || item.partId,
+          carModelId: item.carModelId?._id || null,
           categoryId: item.categoryId,
           title: item.title,
           requestedQuantity: item.qty,
@@ -286,8 +290,7 @@ async function createInvitationsForOrder(orderId, { session = null } = {}) {
     });
   }
 
-  order.status =
-    created.length > 0 ? "supplier_invitation" : "collecting_offers";
+  order.status = created.length > 0 ? "supplier_invitation" : "operator_review";
   await order.save(session ? { session } : undefined);
 
   return created;
@@ -590,6 +593,8 @@ async function getOperatorOfferBoard(orderId) {
   const invitations = await Invitation.find({ orderId })
     .populate("supplierId", "name contacts isActive")
     .lean();
+  const operatorOffers = await OrderOffer.find({ orderId, source: "operator" }).lean();
+  const publishedOffers = await OrderOffer.find({ orderId, status: { $in: ["shortlisted", "selected"] } }).lean();
 
   const offersByItemKey = new Map();
   for (const invitation of invitations) {
@@ -628,6 +633,8 @@ async function getOperatorOfferBoard(orderId) {
       requestedQuantity: item.qty,
       currentAvailability: item.availability,
       offers,
+      operatorOffers: operatorOffers.filter((offer) => offer.itemKey === itemKey),
+      publishedOffers: publishedOffers.filter((offer) => offer.itemKey === itemKey),
       hasOffers: offers.length > 0,
     };
   });
@@ -636,262 +643,17 @@ async function getOperatorOfferBoard(orderId) {
     orderId: order._id,
     orderStatus: order.status,
     invitationsCount: invitations.length,
+    currency: "IRR",
     items,
   };
 }
 
-async function selectOrderOffersInTransaction(
-  orderId,
-  selections,
-  operatorId,
-  session,
-) {
-  assertObjectId(orderId, "order ID");
-  assertObjectId(operatorId, "operator ID");
-
-  if (!Array.isArray(selections) || selections.length === 0) {
-    const error = new Error("Selections are required");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const orderQuery = Order.findById(orderId);
-  if (session) orderQuery.session(session);
-  const order = await orderQuery;
-  if (!order) {
-    const error = new Error("Order not found");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  if (!["collecting_offers", "offers_ready"].includes(order.status)) {
-    const error = new Error(
-      `Offers cannot be selected when order status is "${order.status}"`,
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const orderItemsByKey = new Map(
-    order.items.map((item) => [
-      buildItemKey(item.partId, item.carModelId),
-      item,
-    ]),
-  );
-
-  if (selections.length !== orderItemsByKey.size) {
-    const error = new Error("Every order item must have an explicit decision");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const decisionsByKey = new Map();
-  for (const selection of selections) {
-    if (!selection || typeof selection.itemKey !== "string") {
-      const error = new Error("Each selection must include itemKey");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (
-      !orderItemsByKey.has(selection.itemKey) ||
-      decisionsByKey.has(selection.itemKey)
-    ) {
-      const error = new Error(
-        `Invalid or duplicate order item: ${selection.itemKey}`,
-      );
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const isUnavailable = selection.availability === "unavailable";
-    const hasOfferId = mongoose.isValidObjectId(selection.offerId);
-
-    if (isUnavailable) {
-      if (typeof selection.reason !== "string" || !selection.reason.trim()) {
-        const error = new Error("A reason is required for an unavailable item");
-        error.statusCode = 400;
-        throw error;
-      }
-
-      if (selection.offerId !== undefined) {
-        const error = new Error("Unavailable decisions cannot include offerId");
-        error.statusCode = 400;
-        throw error;
-      }
-    } else {
-      if (!hasOfferId) {
-        const error = new Error(
-          "A valid offerId is required for an available item",
-        );
-        error.statusCode = 400;
-        throw error;
-      }
-    }
-
-    decisionsByKey.set(selection.itemKey, selection);
-  }
-
-  for (const itemKey of orderItemsByKey.keys()) {
-    if (!decisionsByKey.has(itemKey)) {
-      const error = new Error(`Missing decision for order item: ${itemKey}`);
-      error.statusCode = 400;
-      throw error;
-    }
-  }
-
-  const invitationsQuery = Invitation.find({ orderId });
-  if (session) invitationsQuery.session(session);
-  const invitations = await invitationsQuery;
-  const originalOrder = order.toObject();
-  const originalInvitations = invitations.map((invitation) =>
-    invitation.toObject(),
-  );
-  const offersById = new Map();
-
-  for (const invitation of invitations) {
-    for (const invitationItem of invitation.items) {
-      for (const offer of invitationItem.offers) {
-        offersById.set(String(offer._id), {
-          invitation,
-          invitationItem,
-          offer,
-        });
-      }
-    }
-  }
-
-  for (const [itemKey, selection] of decisionsByKey) {
-    const orderItem = orderItemsByKey.get(itemKey);
-
-    if (selection.availability === "unavailable") {
-      orderItem.availability.status = "unavailable";
-      orderItem.availability.description = selection.reason.trim();
-      orderItem.unitPrice = null;
-      orderItem.selectedOffer = null;
-      continue;
-    }
-
-    const offerRecord = offersById.get(String(selection.offerId));
-    if (!offerRecord || offerRecord.invitationItem.itemKey !== itemKey) {
-      const error = new Error(
-        "Offer does not belong to the selected order item",
-      );
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const { invitation, offer } = offerRecord;
-    if (offer.availability !== "available") {
-      const error = new Error("Only available offers can be selected");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const selectedQuantity =
-      selection.selectedQuantity === undefined
-        ? offer.availableQuantity
-        : selection.selectedQuantity;
-
-    if (
-      !Number.isInteger(selectedQuantity) ||
-      selectedQuantity < 1 ||
-      selectedQuantity > orderItem.qty ||
-      selectedQuantity > offer.availableQuantity
-    ) {
-      const error = new Error(
-        `selectedQuantity for "${itemKey}" must be between 1 and the requested and available quantities`,
-      );
-      error.statusCode = 400;
-      throw error;
-    }
-
-    orderItem.availability.status = "available";
-    orderItem.availability.description = offer.description || null;
-    orderItem.unitPrice = offer.unitPrice;
-    orderItem.selectedOffer = {
-      invitationId: invitation._id,
-      supplierId: invitation.supplierId,
-      offerId: offer._id,
-      brandName: offer.brandName,
-      manufacturerName: offer.manufacturerName,
-      partNumber: offer.partNumber,
-      unitPrice: offer.unitPrice,
-      selectedQuantity,
-      selectedAt: new Date(),
-      selectedBy: operatorId,
-    };
-  }
-
-  // Clear every previous selection for this order before applying the new set.
-  for (const invitation of invitations) {
-    for (const invitationItem of invitation.items) {
-      const itemKey = invitationItem.itemKey;
-      const decision = decisionsByKey.get(itemKey);
-      for (const offer of invitationItem.offers) {
-        offer.selected = false;
-        offer.selectedAt = null;
-        offer.selectedBy = null;
-      }
-
-      if (decision?.availability !== "unavailable" && decision?.offerId) {
-        const selectedOffer = invitationItem.offers.id(decision.offerId);
-        if (selectedOffer) {
-          selectedOffer.selected = true;
-          selectedOffer.selectedAt = new Date();
-          selectedOffer.selectedBy = operatorId;
-        }
-      }
-    }
-  }
-
-  order.status = "offers_ready";
-  try {
-    await Promise.all(
-      invitations.map((invitation) =>
-        invitation.save(session ? { session } : undefined),
-      ),
-    );
-    await order.save(session ? { session } : undefined);
-  } catch (error) {
-    if (!session) {
-      await Promise.all(
-        originalInvitations.map((snapshot) =>
-          Invitation.replaceOne({ _id: snapshot._id }, snapshot),
-        ),
-      );
-      await Order.replaceOne({ _id: originalOrder._id }, originalOrder);
-    }
-    throw error;
-  }
-
-  await recordEvent({
-    orderId,
-    type: "offers_selected",
-    actorType: "operator",
-    actorId: operatorId,
-    metadata: {
-      selections: [...decisionsByKey.entries()].map(([itemKey, selection]) => ({
-        itemKey,
-        availability:
-          selection.availability === "unavailable"
-            ? "unavailable"
-            : "available",
-        offerId: selection.offerId || null,
-        selectedQuantity: selection.selectedQuantity || null,
-      })),
-    },
-    session,
-  });
-
-  return order;
-}
-
 async function selectOrderOffers(orderId, selections, operatorId) {
-  return withTransaction((session) =>
-    selectOrderOffersInTransaction(orderId, selections, operatorId, session),
-  );
+  const error = new Error("Use shortlist-offers to publish options for customer selection");
+  error.statusCode = 410;
+  throw error;
 }
+
 async function expireDueInvitations() {
   const now = new Date();
 
@@ -907,7 +669,18 @@ async function expireDueInvitations() {
     },
   );
 
-  return { expiredCount: result.modifiedCount || 0 };
+  const waitingOrders = await Order.find({ status: { $in: ["supplier_invitation", "collecting_offers"] } }).select("_id").lean();
+  const orderIds = waitingOrders.map((entry) => entry._id);
+  const activeOrderIds = await Invitation.distinct("orderId", {
+    orderId: { $in: orderIds },
+    "lifecycle.status": { $in: ["sent", "opened", "responded"] },
+  });
+  const reviewed = await Order.updateMany(
+    { _id: { $in: orderIds, $nin: activeOrderIds }, status: { $in: ["supplier_invitation", "collecting_offers"] } },
+    { $set: { status: "operator_review" } },
+  );
+  const reviewCount = reviewed.modifiedCount || 0;
+  return { expiredCount: result.modifiedCount || 0, reviewCount };
 }
 
 module.exports = {

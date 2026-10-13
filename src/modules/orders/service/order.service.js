@@ -38,6 +38,67 @@ function getCarModelMap(carModels) {
   );
 }
 
+function buildOrderFilter({ status, phase, search, from, to } = {}) {
+  const filter = {};
+  const phases = {
+    supply: ["pending", "supplier_invitation", "collecting_offers"],
+    sales: ["operator_review", "offers_ready", "customer_selection", "awaiting_payment", "confirmed", "paid"],
+  };
+  if (phase && !phases[phase]) {
+    const error = new Error("Invalid order phase");
+    error.statusCode = 400;
+    throw error;
+  }
+  if (phase) filter.status = { $in: phases[phase] };
+  if (search && String(search).trim()) {
+    const term = String(search).trim().slice(0, 100);
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.$or = [{ "customer.name": new RegExp(escaped, "i") }];
+    if (isValidObjectId(term)) filter.$or.push({ _id: term });
+  }
+  if (from || to) {
+    filter.createdAt = {};
+    for (const [value, operator] of [[from, "$gte"], [to, "$lt"]]) {
+      if (!value) continue;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        const error = new Error("Invalid date filter");
+        error.statusCode = 400;
+        throw error;
+      }
+      filter.createdAt[operator] = date;
+    }
+  }
+
+  if (status) {
+    const allowedStatuses = [
+      "pending",
+      "supplier_invitation",
+      "collecting_offers",
+      "operator_review",
+      "customer_selection",
+      "awaiting_payment",
+      "paid",
+      "completed",
+      "payment_failed",
+      "expired",
+      "offers_ready",
+      "confirmed",
+      "cancelled",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      const error = new Error("Invalid order status");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    filter.status = phase ? { $in: phases[phase].filter((value) => value === status) } : status;
+  }
+
+  return filter;
+}
+
 // ============================================================
 // Customer
 // ============================================================
@@ -51,7 +112,6 @@ function getCarModelMap(carModels) {
  *   items: [
  *     {
  *       partId,
- *       carModelId,
  *       qty
  *     }
  *   ]
@@ -93,11 +153,7 @@ async function createOrder(customerId, items) {
       throw new Error("Part ID is required");
     }
 
-    if (!item.carModelId) {
-      throw new Error("Car model ID is required");
-    }
-
-    if (!Number.isInteger(item.qty) || item.qty < 1) {
+    if (!Number.isSafeInteger(item.qty) || item.qty < 1) {
       throw new Error("Quantity must be a positive integer");
     }
 
@@ -105,13 +161,13 @@ async function createOrder(customerId, items) {
       throw new Error(`Invalid part ID: ${item.partId}`);
     }
 
-    if (!isValidObjectId(item.carModelId)) {
+    if (item.carModelId && !isValidObjectId(item.carModelId)) {
       throw new Error(`Invalid car model ID: ${item.carModelId}`);
     }
 
     // Prevent the same part + car model from
     // appearing twice in the same order.
-    const key = `${item.partId}:${item.carModelId}`;
+    const key = `${item.partId}:${item.carModelId || "*"}`;
 
     if (seenItems.has(key)) {
       throw new Error(
@@ -123,7 +179,7 @@ async function createOrder(customerId, items) {
   }
 
   const partIds = items.map((item) => item.partId);
-  const carModelIds = items.map((item) => item.carModelId);
+  const carModelIds = items.map((item) => item.carModelId).filter(Boolean);
 
   const [parts, carModels] = await Promise.all([
     Part.find({
@@ -144,19 +200,19 @@ async function createOrder(customerId, items) {
 
   for (const item of items) {
     const part = partMap.get(normalizeId(item.partId));
-    const carModel = carModelMap.get(normalizeId(item.carModelId));
+    const carModel = item.carModelId ? carModelMap.get(normalizeId(item.carModelId)) : null;
 
     if (!part) {
       throw new Error(`Part not found: ${item.partId}`);
     }
 
-    if (!carModel) {
+    if (item.carModelId && !carModel) {
       throw new Error(`Car model not found: ${item.carModelId}`);
     }
 
     // Verify that the selected car model is compatible
     // with the selected part.
-    const compatible = (part.compatibility || []).some(
+    const compatible = !carModel || (part.compatibility || []).some(
       (compatibleCarModelId) =>
         normalizeId(compatibleCarModelId) === normalizeId(carModel._id),
     );
@@ -169,7 +225,7 @@ async function createOrder(customerId, items) {
 
     orderItems.push({
       partId: part._id,
-      carModelId: carModel._id,
+      carModelId: carModel?._id || null,
       categoryId: part.categoryId,
       title: part.name,
       qty: item.qty,
@@ -240,13 +296,14 @@ async function getCustomerOrders(customerId, options = {}) {
 
   const { page = 1, limit = 20 } = options;
 
-  const safePage = Math.max(Number(page) || 1, 1);
+  const safePage = Math.max(Math.floor(Number(page)) || 1, 1);
 
-  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  const safeLimit = Math.min(Math.max(Math.floor(Number(limit)) || 20, 1), 100);
 
   const skip = (safePage - 1) * safeLimit;
 
   const filter = {
+    ...buildOrderFilter(options),
     "customer.customerId": customerId,
   };
 
@@ -312,30 +369,14 @@ async function getCustomerOrderById(customerId, orderId) {
  * ?status=cancelled
  */
 async function getOperatorOrders(options = {}) {
-  const { status, page = 1, limit = 20 } = options;
+  const { page = 1, limit = 20 } = options;
 
-  const filter = {};
+  await invitationService.expireDueInvitations();
+  const filter = buildOrderFilter(options);
 
-  if (status) {
-    const allowedStatuses = [
-      "pending",
-      "supplier_invitation",
-      "collecting_offers",
-      "offers_ready",
-      "confirmed",
-      "cancelled",
-    ];
+  const safePage = Math.max(Math.floor(Number(page)) || 1, 1);
 
-    if (!allowedStatuses.includes(status)) {
-      throw new Error("Invalid order status");
-    }
-
-    filter.status = status;
-  }
-
-  const safePage = Math.max(Number(page) || 1, 1);
-
-  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  const safeLimit = Math.min(Math.max(Math.floor(Number(limit)) || 20, 1), 100);
 
   const skip = (safePage - 1) * safeLimit;
 
@@ -397,8 +438,8 @@ function validateFinalOrderItems(order) {
       }
 
       if (
-        !isValidObjectId(selectedOffer.invitationId) ||
-        !isValidObjectId(selectedOffer.supplierId) ||
+        (selectedOffer.source !== "operator" && (!isValidObjectId(selectedOffer.invitationId) ||
+        !isValidObjectId(selectedOffer.supplierId))) ||
         !isValidObjectId(selectedOffer.offerId)
       ) {
         throw new Error(
@@ -434,7 +475,7 @@ function validateFinalOrderItems(order) {
         throw new Error(`Unavailable item "${item.title}" has no description`);
       }
 
-      if (item.unitPrice !== null && item.unitPrice !== undefined) {
+      if (item.unitPrice !== null && item.unitPrice !== undefined && item.unitPrice !== 0) {
         throw new Error(
           `Unavailable item "${item.title}" cannot have a unit price`,
         );
@@ -481,6 +522,10 @@ async function confirmOrder(orderId, operatorId = null) {
       throw new Error("Order not found");
     }
 
+    if (order.status === "awaiting_payment" && order.invoiceId) {
+      const invoice = await Invoice.findById(order.invoiceId).session(session);
+      return { order, invoice };
+    }
     if (order.status !== "offers_ready") {
       throw new Error(
         `Order cannot be confirmed from status "${order.status}"`,

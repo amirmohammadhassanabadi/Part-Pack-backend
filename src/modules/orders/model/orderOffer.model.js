@@ -25,7 +25,7 @@ const orderOfferSchema = new mongoose.Schema(
     carModelId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CarModel",
-      required: true,
+      default: null,
     },
 
     categoryId: {
@@ -122,7 +122,7 @@ const orderOfferSchema = new mongoose.Schema(
 
     markupPercent: {
       type: Number,
-      min: 1,
+      min: 0,
       max: 100,
       default: null,
     },
