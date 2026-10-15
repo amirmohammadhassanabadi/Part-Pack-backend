@@ -1,3 +1,6 @@
 node_modules/
 .env
+.env.*
 doc
+# Local development databases and downloaded binaries
+.local/

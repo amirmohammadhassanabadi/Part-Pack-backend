@@ -4,7 +4,13 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "local:services": "node scripts/local-services.cjs start",
+    "local:stop": "node scripts/local-services.cjs stop",
+    "seed:local": "node scripts/seed-local.cjs",
+    "local:expire": "node scripts/expire-local-order.cjs",
+    "local:reset-orders": "node scripts/reset-local-orders.cjs",
+    "check:local": "node scripts/check-local.cjs"
   },
   "keywords": [],
   "author": "hasanabadi.am1380@gmail.com",

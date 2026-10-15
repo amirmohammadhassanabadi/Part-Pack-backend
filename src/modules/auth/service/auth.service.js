@@ -4,6 +4,8 @@ const Auth = require("../model/auth.model");
 const { getRedisClient } = require("../../../core/database/redis");
 const kavenegarService = require("../../../integrations/kavenegar/kavenegarService");
 
+const { getLocalOtp, isLocalTestPhone } = require("./localAuth");
+
 const OTP_TTL = 120;
 const OTP_MAX_ATTEMPTS = 5;
 const ACCESS_TOKEN_EXPIRY = "1h";
@@ -11,6 +13,11 @@ const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60;
 
 async function requestOtp(phone, otpWay) {
   const redis = getRedisClient();
+  if (process.env.NODE_ENV === "development" && process.env.DEV_AUTH_ENABLED === "true" && !isLocalTestPhone(phone)) {
+    const error = new Error("Only seeded test accounts are allowed in local mode; no SMS is sent.");
+    error.statusCode = 400;
+    throw error;
+  }
 
   const existingOtp = await redis.get(`otp:${phone}`);
   if (existingOtp) {
@@ -19,12 +26,13 @@ async function requestOtp(phone, otpWay) {
     );
   }
 
-  const otp = crypto.randomInt(100000, 999999).toString();
+  const localOtp = getLocalOtp(phone);
+  const otp = localOtp || crypto.randomInt(100000, 999999).toString();
 
   await redis.set(`otp:${phone}`, otp, "EX", OTP_TTL);
   await redis.set(`otp_attempts:${phone}`, "0", "EX", OTP_TTL);
 
-  await kavenegarService.sendOtp(phone, otp, otpWay);
+  if (!localOtp) await kavenegarService.sendOtp(phone, otp, otpWay);
 
   return { success: true };
 }
@@ -55,6 +63,11 @@ async function verifyOtp(phone, code) {
     return { registered: false };
   }
 
+  return issueTokens(authUser);
+}
+
+async function issueTokens(authUser) {
+  const redis = getRedisClient();
   const accessToken = jwt.sign(
     {
       userId: authUser.refId,
@@ -129,30 +142,15 @@ async function logout(refreshToken) {
 }
 
 async function devLogin(phone, code) {
-  if (phone !== "09128498876") throw new Error("Phone number is wrong.");
-  if (code !== "112233") throw new Error("Invalid OTP code.");
-
+  if (isLocalTestPhone(phone)) {
+    if (code !== getLocalOtp(phone)) throw new Error("Invalid OTP code.");
+  } else {
+    if (phone !== "09128498876") throw new Error("Phone number is wrong.");
+    if (code !== "112233") throw new Error("Invalid OTP code.");
+  }
   const authUser = await Auth.findOne({ phone, isActive: true });
   if (!authUser) throw new Error("Permission denied.");
-
-  const accessToken = jwt.sign(
-    {
-      userId: authUser.refId,
-      role: authUser.role,
-      refModel: authUser.refModel,
-    },
-    process.env.JWT_ACCESS_SECRET,
-    { expiresIn: "30d" },
-  );
-
-  return {
-    accessToken,
-    user: {
-      userId: authUser.refId,
-      role: authUser.role,
-      refModel: authUser.refModel,
-    },
-  };
+  return issueTokens(authUser);
 }
 
 module.exports = { requestOtp, verifyOtp, refreshToken, logout, devLogin };

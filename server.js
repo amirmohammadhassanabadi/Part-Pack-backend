@@ -14,7 +14,7 @@ async function startServer() {
     await connectRedis();
     startInvitationExpiryJob();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, process.env.HOST || undefined, () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {

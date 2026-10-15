@@ -12,6 +12,9 @@ async function sendSupplierInvitation({
   expiresAt,
 }) {
   const url = buildSupplierInvitationUrl(token);
+  if (process.env.NODE_ENV === "development" && process.env.DEV_AUTH_ENABLED === "true") {
+    console.log(`[local invitation] ${supplierId}: ${url}`);
+  }
 
   return {
     provider: "noop",

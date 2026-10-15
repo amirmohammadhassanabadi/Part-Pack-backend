@@ -70,6 +70,7 @@ async function verifyDev(req, res, next) {
     const { phone, code } = req.body;
     const result = await authService.devLogin(phone, code);
     res.status(200).json({
+      refreshToken: result.refreshToken,
       accessToken: result.accessToken,
       user: result.user,
     });

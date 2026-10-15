@@ -2,7 +2,43 @@ const express = require("express");
 const supplierController = require("../controller/supplier.controller");
 const { authenticate, authorize } = require("../../auth/middleware/auth.middleware");
 
+const invitationController = require("../../invitation/controller/invitation.controller");
+const { validateBody, validateOffer } = require("../../../core/validation/validate");
+
 const router = express.Router();
+
+router.get(
+  "/me/invitations",
+  authenticate,
+  authorize("supplier"),
+  invitationController.listSupplierInvitations,
+);
+router.get(
+  "/me/invitations/:invitationId",
+  authenticate,
+  authorize("supplier"),
+  invitationController.getSupplierInvitation,
+);
+router.post(
+  "/me/invitations/:invitationId/items/:itemKey/offers",
+  authenticate,
+  authorize("supplier"),
+  validateBody(validateOffer),
+  invitationController.addOffer,
+);
+router.patch(
+  "/me/invitations/:invitationId/items/:itemKey/offers/:offerId",
+  authenticate,
+  authorize("supplier"),
+  validateBody(validateOffer),
+  invitationController.updateOffer,
+);
+router.delete(
+  "/me/invitations/:invitationId/items/:itemKey/offers/:offerId",
+  authenticate,
+  authorize("supplier"),
+  invitationController.deleteOffer,
+);
 
 router.get(
   "/:id/coverage",

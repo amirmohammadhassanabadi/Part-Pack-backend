@@ -300,16 +300,19 @@ async function deleteInvitationsForOrder(orderId) {
   return Invitation.deleteMany({ orderId });
 }
 
-async function getInvitationByToken(rawToken, { markOpened = false } = {}) {
-  if (typeof rawToken !== "string" || rawToken.length < 32) {
+async function getInvitation(rawToken, { markOpened = false, supplierId = null, allowExpired = false } = {}) {
+  if (supplierId) {
+    assertObjectId(rawToken, "invitation ID");
+    assertObjectId(supplierId, "supplier ID");
+  } else if (typeof rawToken !== "string" || rawToken.length < 32) {
     const error = new Error("Invalid invitation token");
     error.statusCode = 401;
     throw error;
   }
 
-  const invitation = await Invitation.findOne({
-    "token.hash": hashToken(rawToken),
-  });
+  const invitation = await Invitation.findOne(supplierId
+    ? { _id: rawToken, supplierId }
+    : { "token.hash": hashToken(rawToken) });
 
   if (!invitation) {
     const error = new Error("Invitation not found or token is invalid");
@@ -325,7 +328,7 @@ async function getInvitationByToken(rawToken, { markOpened = false } = {}) {
     await invitation.save();
   }
 
-  if (invitation.lifecycle.status === "expired") {
+  if (invitation.lifecycle.status === "expired" && !allowExpired) {
     const error = new Error("Invitation has expired");
     error.statusCode = 410;
     throw error;
@@ -423,8 +426,12 @@ function getInvitationItem(invitation, itemKey) {
   return item;
 }
 
-async function assertWritableInvitation(rawToken) {
-  return getInvitationByToken(rawToken, { markOpened: true });
+async function getInvitationByToken(rawToken, options = {}) {
+  return getInvitation(rawToken, { markOpened: options.markOpened });
+}
+
+async function assertWritableInvitation(rawToken, supplierId) {
+  return getInvitation(rawToken, { markOpened: true, supplierId });
 }
 
 function toSupplierView(invitation) {
@@ -445,13 +452,25 @@ async function markOrderCollectingOffers(orderId) {
   );
 }
 
-async function getSupplierInvitation(rawToken) {
-  const invitation = await assertWritableInvitation(rawToken);
+async function listSupplierInvitations(supplierId, { page = 1, limit = 20 } = {}) {
+  assertObjectId(supplierId, "supplier ID");
+  await expireDueInvitations();
+  const currentPage = Math.max(1, parseInt(page, 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const [invitations, total] = await Promise.all([
+    Invitation.find({ supplierId }).sort({ createdAt: -1 }).skip((currentPage - 1) * pageSize).limit(pageSize),
+    Invitation.countDocuments({ supplierId }),
+  ]);
+  return { invitations: invitations.map(toSupplierView), pagination: { page: currentPage, limit: pageSize, total, pages: Math.ceil(total / pageSize) } };
+}
+
+async function getSupplierInvitation(rawToken, supplierId = null) {
+  const invitation = await getInvitation(rawToken, { markOpened: true, supplierId, allowExpired: Boolean(supplierId) });
   return toSupplierView(invitation);
 }
 
-async function addOffer(rawToken, itemKey, payload) {
-  const invitation = await assertWritableInvitation(rawToken);
+async function addOffer(rawToken, itemKey, payload, supplierId = null) {
+  const invitation = await assertWritableInvitation(rawToken, supplierId);
   const item = getInvitationItem(invitation, itemKey);
   const offerData = validateOfferPayload(payload);
   item.offers.push(offerData);
@@ -481,8 +500,8 @@ async function addOffer(rawToken, itemKey, payload) {
   };
 }
 
-async function updateOffer(rawToken, itemKey, offerId, payload) {
-  const invitation = await assertWritableInvitation(rawToken);
+async function updateOffer(rawToken, itemKey, offerId, payload, supplierId = null) {
+  const invitation = await assertWritableInvitation(rawToken, supplierId);
   const item = getInvitationItem(invitation, itemKey);
   const offer = item.offers.id(offerId);
   if (!offer) {
@@ -512,8 +531,8 @@ async function updateOffer(rawToken, itemKey, offerId, payload) {
   return { invitation: toSupplierView(invitation), offer };
 }
 
-async function deleteOffer(rawToken, itemKey, offerId) {
-  const invitation = await assertWritableInvitation(rawToken);
+async function deleteOffer(rawToken, itemKey, offerId, supplierId = null) {
+  const invitation = await assertWritableInvitation(rawToken, supplierId);
   const item = getInvitationItem(invitation, itemKey);
   const offer = item.offers.id(offerId);
   if (!offer) {
@@ -692,6 +711,7 @@ module.exports = {
   getInvitationByToken,
   expireDueInvitations,
   getSupplierInvitation,
+  listSupplierInvitations,
   addOffer,
   updateOffer,
   deleteOffer,
