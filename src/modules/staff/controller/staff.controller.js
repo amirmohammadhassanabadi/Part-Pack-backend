@@ -62,7 +62,9 @@ async function getAllStaff(req, res, next) {
 async function getStaffById(req, res, next) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid staff id." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid staff id." });
     }
 
     const staff = await staffService.getStaffById(req.params.id);
@@ -75,13 +77,17 @@ async function getStaffById(req, res, next) {
 async function updateStaff(req, res, next) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid staff id." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid staff id." });
     }
 
     const payload = sanitizeUpdateBody(req.body);
 
     if (Object.keys(payload).length === 0) {
-      return res.status(400).json({ success: false, message: "No valid fields provided." });
+      return res
+        .status(400)
+        .json({ success: false, message: "No valid fields provided." });
     }
 
     const staff = await staffService.updateStaff(req.params.id, payload);
@@ -94,13 +100,17 @@ async function updateStaff(req, res, next) {
 async function updateStaffStatus(req, res, next) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid staff id." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid staff id." });
     }
 
     const { isActive } = req.body;
 
     if (typeof isActive !== "boolean") {
-      return res.status(400).json({ success: false, message: "isActive must be boolean." });
+      return res
+        .status(400)
+        .json({ success: false, message: "isActive must be boolean." });
     }
 
     const staff = await staffService.updateStaffStatus(req.params.id, isActive);
