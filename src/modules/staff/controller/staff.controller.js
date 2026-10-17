@@ -43,6 +43,22 @@ function sanitizeUpdateBody(body) {
   return payload;
 }
 
+function sanitizeCreateBody(body) {
+  const payload = sanitizeUpdateBody(body);
+  if (!payload.fullName || !payload.phone || !payload.role) {
+    throw new Error("fullName, phone and role are required.");
+  }
+  payload.isActive = payload.isActive === undefined ? true : payload.isActive;
+  return payload;
+}
+
+async function createStaff(req, res, next) {
+  try {
+    const staff = await staffService.createStaff(sanitizeCreateBody(req.body));
+    res.status(201).json(staff);
+  } catch (error) { next(error); }
+}
+
 async function getAllStaff(req, res, next) {
   try {
     const filters = {
@@ -121,6 +137,7 @@ async function updateStaffStatus(req, res, next) {
 }
 
 module.exports = {
+  createStaff,
   getAllStaff,
   getStaffById,
   updateStaff,

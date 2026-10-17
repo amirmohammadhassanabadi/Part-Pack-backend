@@ -3,6 +3,7 @@ const Supplier = require("../model/supplier.model");
 const Brand = require("../../vehicles/model/brand.model");
 const CarModel = require("../../vehicles/model/carModel.model");
 const Category = require("../../vehicles/model/partCategory.models");
+const Auth = require("../../auth/model/auth.model");
 
 function uniqueIds(values = []) {
   return [...new Set(values.map((value) => String(value)))];
@@ -107,16 +108,35 @@ async function createSupplier(data) {
   }
 
   payload.coverageRules = normalizedRules;
+  const existingAuth = await Auth.findOne({ phone: payload.contacts?.mobile });
+  if (existingAuth) {
+    const error = new Error("An account with this phone number already exists.");
+    error.statusCode = 409;
+    throw error;
+  }
   const supplier = await Supplier.create(payload);
+  try {
+    await Auth.create({ phone: supplier.contacts.mobile, role: "supplier", refModel: "Supplier", refId: supplier._id, isActive: supplier.isActive });
+  } catch (error) {
+    await Supplier.deleteOne({ _id: supplier._id });
+    throw error;
+  }
   return supplier;
 }
 
 async function getSuppliers(filters = {}) {
-  return Supplier.find(filters)
+  const suppliers = await Supplier.find(filters)
     .populate("coverageRules.vehicleBrandId", "name slug")
     .populate("coverageRules.carModelIds", "name slug brand")
     .populate("coverageRules.partCategoryIds", "name slug")
     .sort({ createdAt: -1 });
+  const authRows = await Auth.find({ refModel: "Supplier", refId: { $in: suppliers.map((item) => item._id) } }).select("refId phone").lean();
+  const phoneById = new Map(authRows.map((item) => [String(item.refId), item.phone]));
+  return suppliers.map((supplier) => {
+    const json = supplier.toObject();
+    if (!json.contacts?.mobile) json.phone = phoneById.get(String(supplier._id)) || "";
+    return json;
+  });
 }
 
 async function getCoverage(supplierId) {

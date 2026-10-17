@@ -2,6 +2,25 @@ const mongoose = require("mongoose");
 const Staff = require("../model/staff.model");
 const Auth = require("../../auth/model/auth.model");
 
+async function createStaff(data) {
+  const existing = await Staff.findOne({ phone: data.phone });
+  const existingAuth = await Auth.findOne({ phone: data.phone });
+  if (existing || existingAuth) {
+    const error = new Error("Phone number already exists.");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const staff = await Staff.create(data);
+  try {
+    await Auth.create({ phone: staff.phone, role: staff.role, refModel: "Staff", refId: staff._id, isActive: staff.isActive });
+  } catch (error) {
+    await Staff.deleteOne({ _id: staff._id });
+    throw error;
+  }
+  return staff;
+}
+
 function ensureValidObjectId(id) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new Error("Invalid staff id.");
@@ -114,6 +133,7 @@ async function updateStaffStatus(id, isActive) {
 }
 
 module.exports = {
+  createStaff,
   getAllStaff,
   getStaffById,
   updateStaff,
