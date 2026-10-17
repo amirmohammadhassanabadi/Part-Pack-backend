@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const Order = require("../model/order.model");
+const { withOrderActivityTimers } = require("./orderActivityTimer.service");
 const Part = require("../../parts/model/part.model");
 const CarModel = require("../../vehicles/model/carModel.model");
 const Customer = require("../../customer/model/customer.model");
@@ -318,7 +319,7 @@ async function getCustomerOrders(customerId, options = {}) {
   ]);
 
   return {
-    orders,
+    orders: await withOrderActivityTimers(orders),
     pagination: {
       page: safePage,
       limit: safeLimit,
@@ -391,7 +392,7 @@ async function getOperatorOrders(options = {}) {
   ]);
 
   return {
-    orders,
+    orders: await withOrderActivityTimers(orders),
     pagination: {
       page: safePage,
       limit: safeLimit,

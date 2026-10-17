@@ -252,4 +252,31 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     assert.equal((await Invitation.findById(otherInvitation._id)).items[0].offers.length, 0);
   });
 
+  await t.test("quotation countdown uses the last active deadline and exposes no supplier data", async () => {
+    const order = await orderService.createOrder(String(customer._id), items);
+    const first = await Invitation.findOne({ orderId: order._id, supplierId: supplier._id });
+    const early = new Date(Date.now() + 10 * 60000);
+    const late = new Date(Date.now() + 20 * 60000);
+    first.token.expiresAt = early;
+    await first.save();
+    const template = first.toObject();
+    delete template._id;
+    await Invitation.create({ ...template, supplierId: new mongoose.Types.ObjectId(), lifecycle: { status: "responded" }, token: { ...template.token, hash: crypto.randomBytes(32).toString("hex"), expiresAt: late } });
+    await Invitation.create({ ...template, supplierId: new mongoose.Types.ObjectId(), lifecycle: { status: "expired" }, token: { ...template.token, hash: crypto.randomBytes(32).toString("hex"), expiresAt: new Date(Date.now() + 30 * 60000) } });
+    const own = await orderService.getCustomerOrders(String(customer._id), { search: String(order._id) });
+    assert.equal(own.orders.length, 1);
+    assert.deepEqual(own.orders[0].activityTimer, { type: "quotation", expiresAt: late });
+    const operator = await orderService.getOperatorOrders({ search: String(order._id) });
+    assert.deepEqual(operator.orders[0].activityTimer, own.orders[0].activityTimer);
+    const supplierView = await invitationService.listSupplierInvitations(String(supplier._id), { search: String(order._id) });
+    assert.equal(supplierView.invitations[0].expiresAt.getTime(), early.getTime());
+    await Invitation.updateMany({ orderId: order._id }, { $set: { "token.expiresAt": new Date(0) } });
+    assert.equal((await orderService.getCustomerOrders(String(customer._id), { search: String(order._id) })).orders[0].activityTimer, null);
+    await invitationService.expireDueInvitations();
+    const finished = await orderService.getCustomerOrders(String(customer._id), { search: String(order._id) });
+    assert.equal(finished.orders[0].status, "operator_review");
+    assert.equal(finished.orders[0].activityTimer, null);
+    assert.equal((await orderService.getCustomerOrders(String(customer._id), { status: "paid" })).orders[0].activityTimer, null);
+  });
+
 });
