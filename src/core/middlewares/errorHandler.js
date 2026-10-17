@@ -21,7 +21,7 @@ const errorHandler = (err, req, res, next) => {
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
     response.message = `مقدار وارد شده برای ${field} تکراری است.`;
-    response.statusCode = 400;
+    err.statusCode = 400;
   }
 
   // خطای اعتبارسنجی خود Mongoose
@@ -31,7 +31,7 @@ const errorHandler = (err, req, res, next) => {
       field: el.path,
       message: el.message
     }));
-    response.statusCode = 400;
+    err.statusCode = 400;
   }
 
   // در محیط توسعه (Development) استک‌تریس رو هم بفرست برای دیباگ خودت

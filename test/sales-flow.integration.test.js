@@ -9,6 +9,8 @@ const Invoice = require("../src/modules/invoice/model/invoice.model");
 const Payment = require("../src/modules/payment/model/payment.model");
 const Customer = require("../src/modules/customer/model/customer.model");
 const Part = require("../src/modules/parts/model/part.model");
+const Auth = require("../src/modules/auth/model/auth.model");
+const supplierService = require("../src/modules/suppliers/service/supplier.service");
 const Supplier = require("../src/modules/suppliers/model/supplier.model");
 const Brand = require("../src/modules/vehicles/model/brand.model");
 const CarModel = require("../src/modules/vehicles/model/carModel.model");
@@ -37,6 +39,28 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
   const items = parts.map((part) => ({ partId: String(part._id), qty: 2 }));
   const supplier = await Supplier.create({ name: "Supplier", contacts: { mobile: "09120000001" }, coverageRules: [{ vehicleBrandId: brand._id, carModelIds: [model._id], partCategoryIds: [category._id] }] });
   const address = { title: "Home", province: "Tehran", city: "Tehran", line: "Test address" };
+
+  await t.test("supplier profile preserves login contacts and recovers legacy mobile for coverage saves", async () => {
+    const id = new mongoose.Types.ObjectId();
+    await Supplier.collection.insertOne({ _id: id, name: "Legacy", contacts: { landLine: "02100000000" }, coverageRules: [], isActive: true });
+    await Auth.create({ phone: "09120000009", role: "supplier", refModel: "Supplier", refId: id });
+    const profile = await supplierService.getSupplierById(String(id));
+    assert.equal(profile.contacts.mobile, "09120000009");
+    const updated = await supplierService.updateMyProfile(String(id), { name: "Updated", address: "New address", contacts: { mobile: "" }, isActive: false });
+    assert.equal(updated.name, "Updated");
+    assert.equal(updated.address, "New address");
+    assert.equal(updated.contacts.mobile, "09120000009");
+    assert.equal(updated.contacts.landLine, "02100000000");
+    assert.equal(updated.isActive, true);
+    await Supplier.collection.updateOne({ _id: id }, { $unset: { "contacts.mobile": "" } });
+    const covered = await supplierService.addCoverage(String(id), { vehicleBrandId: String(brand._id), carModelIds: [String(model._id)], partCategoryIds: [String(category._id)] });
+    assert.equal(covered.contacts.mobile, "09120000009");
+    assert.equal(covered.coverageRules[0].vehicleBrandId.name, "Test brand");
+    assert.equal(covered.coverageRules[0].carModelIds[0].name, "Test model");
+    await assert.rejects(supplierService.updateMyProfile(String(id), { name: " " }), { name: "ValidationError" });
+    await Supplier.deleteOne({ _id: id });
+    await Auth.deleteOne({ refId: id });
+  });
 
   await t.test("no model is needed and no-response orders reach operator review", async () => {
     const order = await orderService.createOrder(String(customer._id), items);
@@ -69,6 +93,14 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     const own = await invitationService.listSupplierInvitations(String(supplier._id));
     assert.ok(own.invitations.some((entry) => String(entry.id) === String(invitation._id)));
     assert.ok(own.invitations.every((entry) => !("token" in entry)));
+    assert.ok(own.invitations.every((entry) => entry.createdAt));
+    const filtered = await invitationService.listSupplierInvitations(String(supplier._id), { search: orderId, status: "sent", limit: 1 });
+    assert.equal(filtered.pagination.total, 1);
+    assert.equal(String(filtered.invitations[0].orderId), orderId);
+    assert.equal((await invitationService.listSupplierInvitations(String(supplier._id), { search: ".*" })).pagination.total, 0);
+    assert.equal((await invitationService.listSupplierInvitations(String(supplier._id), { status: "expired", search: orderId })).pagination.total, 0);
+    assert.equal((await invitationService.listSupplierInvitations(String(supplier._id), { from: "2099-01-01" })).pagination.total, 0);
+    await assert.rejects(invitationService.listSupplierInvitations(String(supplier._id), { from: "invalid" }), /Invalid date/);
     const stranger = String(new mongoose.Types.ObjectId());
     assert.equal((await invitationService.listSupplierInvitations(stranger)).invitations.length, 0);
     await assert.rejects(invitationService.getSupplierInvitation(String(invitation._id), stranger), /not found/);
@@ -188,4 +220,36 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     assert.equal((await orderService.getOperatorOrders({ search: "[" })).orders.length, 0);
     assert.equal((await orderService.getCustomerOrders(String(customer._id), { status: "paid" })).pagination.total, 1);
   });
+  await t.test("customer and supplier lists, counts and details remain scoped to the signed-in account", async () => {
+    const otherCustomer = await Customer.create({ fullName: "Other customer", phone: "09120000008" });
+    const otherOrder = await orderService.createOrder(String(otherCustomer._id), items);
+    const ownOrders = await orderService.getCustomerOrders(String(customer._id));
+    const otherOrders = await orderService.getCustomerOrders(String(otherCustomer._id));
+    assert.ok(ownOrders.orders.every((order) => String(order.customer.customerId) === String(customer._id)));
+    assert.equal(otherOrders.pagination.total, 1);
+    assert.equal(String(otherOrders.orders[0]._id), String(otherOrder._id));
+    assert.equal((await orderService.getCustomerOrders(String(customer._id), { search: String(otherOrder._id) })).pagination.total, 0);
+    await assert.rejects(orderService.getCustomerOrderById(String(customer._id), String(otherOrder._id)), /not found/i);
+    await assert.rejects(orderService.getCustomerOrderById(String(otherCustomer._id), orderId), /not found/i);
+
+    const otherSupplier = await Supplier.create({ name: "Other supplier", contacts: { mobile: "09120000007" } });
+    const originalInvitation = await Invitation.findOne({ orderId: otherOrder._id, supplierId: supplier._id });
+    const otherInvitationData = originalInvitation.toObject();
+    delete otherInvitationData._id;
+    otherInvitationData.supplierId = otherSupplier._id;
+    otherInvitationData.token.hash = crypto.randomBytes(32).toString("hex");
+    const otherInvitation = await Invitation.create(otherInvitationData);
+    const ownInvitations = await invitationService.listSupplierInvitations(String(supplier._id), { search: String(otherOrder._id), supplierId: String(otherSupplier._id) });
+    assert.equal(ownInvitations.pagination.total, 1);
+    assert.equal(String(ownInvitations.invitations[0].id), String(originalInvitation._id));
+    assert.ok(ownInvitations.invitations.every((entry) => String(entry.supplierId) === String(supplier._id)));
+    const otherInvitations = await invitationService.listSupplierInvitations(String(otherSupplier._id));
+    assert.equal(otherInvitations.pagination.total, 1);
+    assert.equal(String(otherInvitations.invitations[0].id), String(otherInvitation._id));
+    await assert.rejects(invitationService.getSupplierInvitation(String(otherInvitation._id), String(supplier._id)), /not found/i);
+    await assert.rejects(invitationService.getSupplierInvitation(String(originalInvitation._id), String(otherSupplier._id)), /not found/i);
+    await assert.rejects(invitationService.addOffer(String(otherInvitation._id), otherInvitation.items[0].itemKey, { availability: "unavailable", description: "Unauthorized" }, String(supplier._id)), /not found/i);
+    assert.equal((await Invitation.findById(otherInvitation._id)).items[0].offers.length, 0);
+  });
+
 });

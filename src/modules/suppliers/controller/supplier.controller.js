@@ -38,7 +38,7 @@ async function getMyProfile(req, res, next) {
 
 async function updateMyProfile(req, res, next) {
   try {
-    const supplier = await supplierService.updateSupplier(req.user.userId, req.body);
+    const supplier = await supplierService.updateMyProfile(req.user.userId, req.body);
     res.status(200).json(supplier);
   } catch (error) {
     next(error);

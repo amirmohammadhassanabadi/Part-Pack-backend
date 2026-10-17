@@ -442,6 +442,7 @@ function toSupplierView(invitation) {
     items: invitation.items,
     lifecycle: invitation.lifecycle,
     expiresAt: invitation.token.expiresAt,
+    createdAt: invitation.createdAt,
   };
 }
 
@@ -452,14 +453,35 @@ async function markOrderCollectingOffers(orderId) {
   );
 }
 
-async function listSupplierInvitations(supplierId, { page = 1, limit = 20 } = {}) {
+async function listSupplierInvitations(supplierId, { page = 1, limit = 20, status, search, from, to } = {}) {
   assertObjectId(supplierId, "supplier ID");
   await expireDueInvitations();
   const currentPage = Math.max(1, parseInt(page, 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const filter = { supplierId };
+  if (status && status !== "all") filter["lifecycle.status"] = status;
+  if (search?.trim()) {
+    const term = search.trim();
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.$or = [{ "items.title": { $regex: escaped, $options: "i" } }];
+    if (mongoose.isValidObjectId(term)) filter.$or.push({ orderId: term });
+  }
+  if (from || to) {
+    filter.createdAt = {};
+    for (const [value, operator] of [[from, "$gte"], [to, "$lt"]]) {
+      if (!value) continue;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        const error = new Error("Invalid date filter");
+        error.statusCode = 400;
+        throw error;
+      }
+      filter.createdAt[operator] = date;
+    }
+  }
   const [invitations, total] = await Promise.all([
-    Invitation.find({ supplierId }).sort({ createdAt: -1 }).skip((currentPage - 1) * pageSize).limit(pageSize),
-    Invitation.countDocuments({ supplierId }),
+    Invitation.find(filter).sort({ createdAt: -1, _id: -1 }).skip((currentPage - 1) * pageSize).limit(pageSize),
+    Invitation.countDocuments(filter),
   ]);
   return { invitations: invitations.map(toSupplierView), pagination: { page: currentPage, limit: pageSize, total, pages: Math.ceil(total / pageSize) } };
 }

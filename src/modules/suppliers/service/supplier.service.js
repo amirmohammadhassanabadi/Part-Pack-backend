@@ -139,6 +139,25 @@ async function getSuppliers(filters = {}) {
   });
 }
 
+// Older supplier records may keep the login phone only in Auth.
+async function restoreContactMobile(supplier) {
+  if (!supplier.contacts?.mobile) {
+    const account = await Auth.findOne({ refModel: "Supplier", refId: supplier._id }).select("phone").lean();
+    if (account?.phone) supplier.set("contacts.mobile", account.phone);
+  }
+  return supplier;
+}
+
+async function updateMyProfile(id, data) {
+  const supplier = await getSupplierById(id);
+  // Login details and other supplier fields cannot be changed through this form.
+  for (const field of ["name", "address"]) {
+    if (Object.prototype.hasOwnProperty.call(data, field)) supplier.set(field, data[field]);
+  }
+  await supplier.save();
+  return supplier;
+}
+
 async function getCoverage(supplierId) {
   const supplier = await getSupplierById(supplierId);
   return supplier.coverageRules;
@@ -161,7 +180,7 @@ async function getSupplierById(id) {
     throw error;
   }
 
-  return supplier;
+  return restoreContactMobile(supplier);
 }
 
 async function updateSupplier(id, data) {
@@ -239,8 +258,9 @@ async function addCoverage(supplierId, payload) {
   }
 
   supplier.coverageRules.push(rule);
+  await restoreContactMobile(supplier);
   await supplier.save();
-  return supplier;
+  return getSupplierById(supplierId);
 }
 
 async function replaceCoverage(supplierId, coverageId, payload) {
@@ -289,8 +309,9 @@ async function replaceCoverage(supplierId, coverageId, payload) {
   rule.partCategoryIds = normalizedRule.partCategoryIds;
   rule.isActive = true;
 
+  await restoreContactMobile(supplier);
   await supplier.save();
-  return supplier;
+  return getSupplierById(supplierId);
 }
 
 async function removeCoverage(supplierId, coverageId) {
@@ -322,6 +343,7 @@ async function removeCoverage(supplierId, coverageId) {
   if (!rule.isActive) return supplier;
 
   rule.isActive = false;
+  await restoreContactMobile(supplier);
   await supplier.save();
   return supplier;
 }
@@ -411,6 +433,7 @@ module.exports = {
   getSupplierById,
   getCoverage,
   updateSupplier,
+  updateMyProfile,
   deleteSupplier,
   addCoverage,
   replaceCoverage,
