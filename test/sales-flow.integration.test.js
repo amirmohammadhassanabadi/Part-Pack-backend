@@ -45,7 +45,7 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     await Supplier.collection.insertOne({ _id: id, name: "Legacy", contacts: { landLine: "02100000000" }, coverageRules: [], isActive: true });
     await Auth.create({ phone: "09120000009", role: "supplier", refModel: "Supplier", refId: id });
     const profile = await supplierService.getSupplierById(String(id));
-    assert.equal(profile.contacts.mobile, "09120000009");
+    assert.equal(profile.contacts?.mobile, undefined);
     const updated = await supplierService.updateMyProfile(String(id), { name: "Updated", address: "New address", contacts: { mobile: "" }, isActive: false });
     assert.equal(updated.name, "Updated");
     assert.equal(updated.address, "New address");

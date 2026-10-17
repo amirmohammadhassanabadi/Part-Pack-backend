@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { mobileField } = require("../../../core/validation/phone");
 
 const supplierSchema = new mongoose.Schema(
   {
@@ -14,11 +15,7 @@ const supplierSchema = new mongoose.Schema(
     },
 
     contacts: {
-      mobile: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+      mobile: { ...mobileField },
       landLine: {
         type: String,
         trim: true,
@@ -80,6 +77,7 @@ const supplierSchema = new mongoose.Schema(
 
     isActive: {
       type: Boolean,
+      required: true,
       default: true,
       index: true,
     },

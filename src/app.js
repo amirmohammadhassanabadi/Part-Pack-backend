@@ -43,6 +43,7 @@ app.get("/healthz", (req, res) => {
 // Routers
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/staff", staffRouter);
+app.use("/api/v1/users", require("./modules/accounts"));
 app.use("/api/v1/suppliers", supplierRouter);
 app.use("/api/v1/customers", customerRouter);
 app.use("/api/v1/vehicles", vehiclesRouter);

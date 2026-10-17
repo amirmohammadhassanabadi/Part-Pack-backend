@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const Auth = require("../model/auth.model");
+const { assertAccountReady } = require("../../accounts/service/account.service");
 const { getRedisClient } = require("../../../core/database/redis");
 const kavenegarService = require("../../../integrations/kavenegar/kavenegarService");
 
@@ -67,6 +68,7 @@ async function verifyOtp(phone, code) {
 }
 
 async function issueTokens(authUser) {
+  await assertAccountReady(authUser);
   const redis = getRedisClient();
   const accessToken = jwt.sign(
     {
@@ -114,6 +116,8 @@ async function refreshToken(token) {
   if (!authUser) {
     throw new Error("User not found or deactivated.");
   }
+
+  await assertAccountReady(authUser);
 
   const accessToken = jwt.sign(
     {

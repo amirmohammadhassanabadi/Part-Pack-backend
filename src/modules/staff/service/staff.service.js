@@ -1,24 +1,9 @@
 const mongoose = require("mongoose");
 const Staff = require("../model/staff.model");
-const Auth = require("../../auth/model/auth.model");
+const { createAccount, updateAccount } = require("../../accounts/service/account.service");
 
 async function createStaff(data) {
-  const existing = await Staff.findOne({ phone: data.phone });
-  const existingAuth = await Auth.findOne({ phone: data.phone });
-  if (existing || existingAuth) {
-    const error = new Error("Phone number already exists.");
-    error.statusCode = 409;
-    throw error;
-  }
-
-  const staff = await Staff.create(data);
-  try {
-    await Auth.create({ phone: staff.phone, role: staff.role, refModel: "Staff", refId: staff._id, isActive: staff.isActive });
-  } catch (error) {
-    await Staff.deleteOne({ _id: staff._id });
-    throw error;
-  }
-  return staff;
+  return createAccount("staff", data);
 }
 
 function ensureValidObjectId(id) {
@@ -61,75 +46,11 @@ async function getStaffById(id) {
 }
 
 async function updateStaff(id, payload) {
-  ensureValidObjectId(id);
-
-  const staff = await Staff.findById(id);
-  if (!staff) {
-    throw new Error("Staff not found.");
-  }
-
-  if (payload.fullName !== undefined) {
-    staff.fullName = payload.fullName;
-  }
-
-  if (payload.phone !== undefined) {
-    const existingStaff = await Staff.findOne({
-      phone: payload.phone,
-      _id: { $ne: id },
-    });
-
-    if (existingStaff) {
-      throw new Error("Phone number already exists.");
-    }
-
-    staff.phone = payload.phone;
-
-    await Auth.findOneAndUpdate(
-      { refModel: "Staff", refId: staff._id },
-      { phone: payload.phone },
-    );
-  }
-
-  if (payload.role !== undefined) {
-    staff.role = payload.role;
-
-    await Auth.findOneAndUpdate(
-      { refModel: "Staff", refId: staff._id },
-      { role: payload.role },
-    );
-  }
-
-  if (payload.isActive !== undefined) {
-    staff.isActive = payload.isActive;
-
-    await Auth.findOneAndUpdate(
-      { refModel: "Staff", refId: staff._id },
-      { isActive: payload.isActive },
-    );
-  }
-
-  await staff.save();
-
-  return staff;
+  return updateAccount("staff", id, payload);
 }
 
 async function updateStaffStatus(id, isActive) {
-  ensureValidObjectId(id);
-
-  const staff = await Staff.findById(id);
-  if (!staff) {
-    throw new Error("Staff not found.");
-  }
-
-  staff.isActive = isActive;
-  await staff.save();
-
-  await Auth.findOneAndUpdate(
-    { refModel: "Staff", refId: staff._id },
-    { isActive },
-  );
-
-  return staff;
+  return updateAccount("staff", id, { isActive });
 }
 
 module.exports = {

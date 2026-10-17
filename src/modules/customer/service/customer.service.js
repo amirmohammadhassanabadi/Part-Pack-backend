@@ -1,49 +1,12 @@
 const mongoose = require("mongoose");
 const Customer = require("../model/customer.model");
 const CarModel = require("../../vehicles/model/carModel.model");
-const Auth = require("../../auth/model/auth.model");
-const { withTransaction } = require("../../../core/database/transaction");
+const { createAccount, updateAccount } = require("../../accounts/service/account.service");
 
 // --- متدهای پایه (CRUD) ---
 
 async function createCustomer(data) {
-  const existing = await Customer.findOne({ phone: data.phone });
-  if (existing) {
-    const error = new Error("مشتری با این شماره موبایل قبلاً ثبت شده است.");
-    error.statusCode = 409;
-    throw error;
-  }
-  const existingAuth = await Auth.findOne({ phone: data.phone });
-  if (existingAuth) {
-    const error = new Error(
-      "An account with this phone number already exists.",
-    );
-    error.statusCode = 409;
-    throw error;
-  }
-
-  return withTransaction(async (session) => {
-    const [customer] = session
-      ? await Customer.create([data], { session })
-      : [await Customer.create(data)];
-
-    try {
-      const authPayload = {
-        phone: customer.phone,
-        role: "customer",
-        refModel: "Customer",
-        refId: customer._id,
-        isActive: customer.isActive,
-      };
-      if (session) await Auth.create([authPayload], { session });
-      else await Auth.create(authPayload);
-    } catch (error) {
-      if (!session) await Customer.deleteOne({ _id: customer._id });
-      throw error;
-    }
-
-    return customer;
-  });
+  return createAccount("customer", data);
 }
 
 async function getAllCustomers(filters = {}) {
@@ -73,28 +36,7 @@ async function getCustomerById(id) {
 }
 
 async function updateCustomerStatus(id, isActive) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    const error = new Error("شناسه مشتری نامعتبر است");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const customer = await Customer.findByIdAndUpdate(
-    id,
-    { isActive: Boolean(isActive) },
-    { new: true, runValidators: true },
-  );
-  if (!customer) {
-    const error = new Error("مشتری پیدا نشد");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  await Auth.findOneAndUpdate(
-    { refModel: "Customer", refId: customer._id },
-    { isActive: customer.isActive },
-  );
-  return customer;
+  return updateAccount("customer", id, { isActive });
 }
 
 // --- مدیریت فیلدهای Ref (Orders & Invoices) ---

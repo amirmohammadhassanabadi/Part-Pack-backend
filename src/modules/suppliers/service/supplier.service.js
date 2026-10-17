@@ -3,16 +3,21 @@ const Supplier = require("../model/supplier.model");
 const Brand = require("../../vehicles/model/brand.model");
 const CarModel = require("../../vehicles/model/carModel.model");
 const Category = require("../../vehicles/model/partCategory.models");
-const Auth = require("../../auth/model/auth.model");
+const { createAccount, updateAccount } = require("../../accounts/service/account.service");
 
-function uniqueIds(values = []) {
+function uniqueIds(values = [], field) {
+  if (!Array.isArray(values) || values.some((value) => !mongoose.isValidObjectId(value))) {
+    const error = new Error(`${field} must be an array of valid IDs`);
+    error.statusCode = 400;
+    throw error;
+  }
   return [...new Set(values.map((value) => String(value)))];
 }
 
 async function validateCoverageRule(payload = {}) {
   const vehicleBrandId = payload.vehicleBrandId;
-  const carModelIds = uniqueIds(payload.carModelIds);
-  const partCategoryIds = uniqueIds(payload.partCategoryIds);
+  const carModelIds = uniqueIds(payload.carModelIds, "carModelIds");
+  const partCategoryIds = uniqueIds(payload.partCategoryIds, "partCategoryIds");
 
   if (!mongoose.isValidObjectId(vehicleBrandId)) {
     const error = new Error("Invalid vehicleBrandId");
@@ -108,20 +113,7 @@ async function createSupplier(data) {
   }
 
   payload.coverageRules = normalizedRules;
-  const existingAuth = await Auth.findOne({ phone: payload.contacts?.mobile });
-  if (existingAuth) {
-    const error = new Error("An account with this phone number already exists.");
-    error.statusCode = 409;
-    throw error;
-  }
-  const supplier = await Supplier.create(payload);
-  try {
-    await Auth.create({ phone: supplier.contacts.mobile, role: "supplier", refModel: "Supplier", refId: supplier._id, isActive: supplier.isActive });
-  } catch (error) {
-    await Supplier.deleteOne({ _id: supplier._id });
-    throw error;
-  }
-  return supplier;
+  return createAccount("supplier", payload);
 }
 
 async function getSuppliers(filters = {}) {
@@ -130,32 +122,16 @@ async function getSuppliers(filters = {}) {
     .populate("coverageRules.carModelIds", "name slug brand")
     .populate("coverageRules.partCategoryIds", "name slug")
     .sort({ createdAt: -1 });
-  const authRows = await Auth.find({ refModel: "Supplier", refId: { $in: suppliers.map((item) => item._id) } }).select("refId phone").lean();
-  const phoneById = new Map(authRows.map((item) => [String(item.refId), item.phone]));
-  return suppliers.map((supplier) => {
-    const json = supplier.toObject();
-    if (!json.contacts?.mobile) json.phone = phoneById.get(String(supplier._id)) || "";
-    return json;
-  });
-}
-
-// Older supplier records may keep the login phone only in Auth.
-async function restoreContactMobile(supplier) {
-  if (!supplier.contacts?.mobile) {
-    const account = await Auth.findOne({ refModel: "Supplier", refId: supplier._id }).select("phone").lean();
-    if (account?.phone) supplier.set("contacts.mobile", account.phone);
-  }
-  return supplier;
+  return suppliers;
 }
 
 async function updateMyProfile(id, data) {
-  const supplier = await getSupplierById(id);
-  // Login details and other supplier fields cannot be changed through this form.
+  const updates = {};
   for (const field of ["name", "address"]) {
-    if (Object.prototype.hasOwnProperty.call(data, field)) supplier.set(field, data[field]);
+    if (Object.hasOwn(data, field)) updates[field] = data[field];
   }
-  await supplier.save();
-  return supplier;
+  await updateAccount("supplier", id, updates);
+  return getSupplierById(id);
 }
 
 async function getCoverage(supplierId) {
@@ -180,7 +156,7 @@ async function getSupplierById(id) {
     throw error;
   }
 
-  return restoreContactMobile(supplier);
+  return supplier;
 }
 
 async function updateSupplier(id, data) {
@@ -195,40 +171,11 @@ async function updateSupplier(id, data) {
     error.statusCode = 400;
     throw error;
   }
-  const supplier = await Supplier.findByIdAndUpdate(id, data, {
-    new: true,
-    runValidators: true,
-  });
-
-  if (!supplier) {
-    const error = new Error("Supplier not found");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return supplier;
+  return updateAccount("supplier", id, data);
 }
 
 async function deleteSupplier(id) {
-  if (!mongoose.isValidObjectId(id)) {
-    const error = new Error("Invalid supplier id");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const supplier = await Supplier.findByIdAndUpdate(
-    id,
-    { isActive: false },
-    { new: true },
-  );
-
-  if (!supplier) {
-    const error = new Error("Supplier not found");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return supplier;
+  return updateAccount("supplier", id, { isActive: false });
 }
 
 async function addCoverage(supplierId, payload) {
@@ -238,7 +185,7 @@ async function addCoverage(supplierId, payload) {
     throw error;
   }
 
-  const supplier = await Supplier.findById(supplierId);
+  const supplier = await updateAccount("supplier", supplierId, {});
   if (!supplier) {
     const error = new Error("Supplier not found");
     error.statusCode = 404;
@@ -257,9 +204,8 @@ async function addCoverage(supplierId, payload) {
     throw error;
   }
 
-  supplier.coverageRules.push(rule);
-  await restoreContactMobile(supplier);
-  await supplier.save();
+  // Validate the new subdocument, not unrelated profile fields or old inactive rules.
+  await Supplier.updateOne({ _id: supplierId }, { $push: { coverageRules: rule } }, { runValidators: true });
   return getSupplierById(supplierId);
 }
 
@@ -275,7 +221,7 @@ async function replaceCoverage(supplierId, coverageId, payload) {
     throw error;
   }
 
-  const supplier = await Supplier.findById(supplierId);
+  const supplier = await updateAccount("supplier", supplierId, {});
   if (!supplier) {
     const error = new Error("Supplier not found");
     error.statusCode = 404;
@@ -304,13 +250,11 @@ async function replaceCoverage(supplierId, coverageId, payload) {
     throw error;
   }
 
-  rule.vehicleBrandId = normalizedRule.vehicleBrandId;
-  rule.carModelIds = normalizedRule.carModelIds;
-  rule.partCategoryIds = normalizedRule.partCategoryIds;
-  rule.isActive = true;
-
-  await restoreContactMobile(supplier);
-  await supplier.save();
+  await Supplier.updateOne(
+    { _id: supplierId, "coverageRules._id": coverageId },
+    { $set: { "coverageRules.$": { ...normalizedRule, _id: rule._id, isActive: true } } },
+    { runValidators: true },
+  );
   return getSupplierById(supplierId);
 }
 
@@ -326,7 +270,7 @@ async function removeCoverage(supplierId, coverageId) {
     throw error;
   }
 
-  const supplier = await Supplier.findById(supplierId);
+  const supplier = await updateAccount("supplier", supplierId, {});
   if (!supplier) {
     const error = new Error("Supplier not found");
     error.statusCode = 404;
@@ -340,12 +284,14 @@ async function removeCoverage(supplierId, coverageId) {
     throw error;
   }
 
-  if (!rule.isActive) return supplier;
-
-  rule.isActive = false;
-  await restoreContactMobile(supplier);
-  await supplier.save();
-  return supplier;
+  if (rule.isActive !== false) {
+    await Supplier.updateOne(
+      { _id: supplierId, "coverageRules._id": coverageId },
+      { $set: { "coverageRules.$.isActive": false } },
+      { runValidators: true },
+    );
+  }
+  return getSupplierById(supplierId);
 }
 
 async function findSuppliersForOrderItem({ brandId, carModelId, categoryId }) {

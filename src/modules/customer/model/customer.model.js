@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { mobileField } = require("../../../core/validation/phone");
 
 const customerSchema = new mongoose.Schema(
   {
@@ -9,14 +10,13 @@ const customerSchema = new mongoose.Schema(
     },
 
     phone: {
-      type: String,
-      required: true,
+      ...mobileField,
       unique: true,
-      trim: true,
     },
 
     isActive: {
       type: Boolean,
+      required: true,
       default: true,
       index: true,
     },

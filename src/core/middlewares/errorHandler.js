@@ -11,6 +11,11 @@ const errorHandler = (err, req, res, next) => {
 
   if (err.code) response.code = err.code;
 
+  if (err.code === 121) {
+    err.statusCode = 400;
+    response.message = "اطلاعات الزامی حساب ناقص یا نامعتبر است؛ ادمین باید اطلاعات کاربر را تکمیل کند.";
+  }
+
   // اگر خطای ولیدیشن (از سمت Validator ما) باشد، لیست ارورها را اضافه می‌کنیم
   if (err.errors) {
     response.errors = err.errors;

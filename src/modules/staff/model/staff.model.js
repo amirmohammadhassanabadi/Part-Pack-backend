@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { mobileField } = require("../../../core/validation/phone");
 
 const staffSchema = new mongoose.Schema(
   {
@@ -9,10 +10,8 @@ const staffSchema = new mongoose.Schema(
     },
 
     phone: {
-      type: String,
-      required: true,
+      ...mobileField,
       unique: true,
-      trim: true,
     },
 
     role: {
@@ -23,6 +22,7 @@ const staffSchema = new mongoose.Schema(
 
     isActive: {
       type: Boolean,
+      required: true,
       default: true,
       index: true,
     },
