@@ -1,5 +1,10 @@
+function isLocalAuthEnabled() {
+  return (process.env.NODE_ENV === "development" && process.env.DEV_AUTH_ENABLED === "true")
+    || process.env.TEST_AUTH_ENABLED === "true";
+}
+
 function isLocalTestPhone(phone) {
-  if (process.env.NODE_ENV !== "development" || process.env.DEV_AUTH_ENABLED !== "true") return false;
+  if (!isLocalAuthEnabled()) return false;
   return (process.env.DEV_AUTH_PHONES || "").split(",").map((value) => value.trim()).includes(phone);
 }
 
@@ -10,4 +15,4 @@ function getLocalOtp(phone) {
   return code;
 }
 
-module.exports = { isLocalTestPhone, getLocalOtp };
+module.exports = { isLocalAuthEnabled, isLocalTestPhone, getLocalOtp };

@@ -1,3 +1,5 @@
+const { isLocalAuthEnabled } = require("../../auth/service/localAuth");
+
 function buildSupplierInvitationUrl(token) {
   const baseUrl =
     process.env.SUPPLIER_PORTAL_URL ||
@@ -12,7 +14,7 @@ async function sendSupplierInvitation({
   expiresAt,
 }) {
   const url = buildSupplierInvitationUrl(token);
-  if (process.env.NODE_ENV === "development" && process.env.DEV_AUTH_ENABLED === "true") {
+  if (isLocalAuthEnabled()) {
     console.log(`[local invitation] ${supplierId}: ${url}`);
   }
 

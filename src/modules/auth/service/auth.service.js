@@ -4,7 +4,7 @@ const Auth = require("../model/auth.model");
 const { getRedisClient } = require("../../../core/database/redis");
 const kavenegarService = require("../../../integrations/kavenegar/kavenegarService");
 
-const { getLocalOtp, isLocalTestPhone } = require("./localAuth");
+const { getLocalOtp, isLocalAuthEnabled, isLocalTestPhone } = require("./localAuth");
 
 const OTP_TTL = 120;
 const OTP_MAX_ATTEMPTS = 5;
@@ -13,7 +13,7 @@ const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60;
 
 async function requestOtp(phone, otpWay) {
   const redis = getRedisClient();
-  if (process.env.NODE_ENV === "development" && process.env.DEV_AUTH_ENABLED === "true" && !isLocalTestPhone(phone)) {
+  if (isLocalAuthEnabled() && !isLocalTestPhone(phone)) {
     const error = new Error("Only seeded test accounts are allowed in local mode; no SMS is sent.");
     error.statusCode = 400;
     throw error;

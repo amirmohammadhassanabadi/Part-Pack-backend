@@ -1,9 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { isLocalTestPhone, getLocalOtp } = require("../src/modules/auth/service/localAuth");
+const { isLocalAuthEnabled, isLocalTestPhone, getLocalOtp } = require("../src/modules/auth/service/localAuth");
 
 test("fixed OTP is limited to explicit development accounts", () => {
-  const keys = ["NODE_ENV", "DEV_AUTH_ENABLED", "DEV_AUTH_PHONES", "DEV_LOGIN_CODE"];
+  const keys = ["NODE_ENV", "DEV_AUTH_ENABLED", "TEST_AUTH_ENABLED", "DEV_AUTH_PHONES", "DEV_LOGIN_CODE"];
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   try {
     process.env.NODE_ENV = "development";
@@ -15,6 +15,10 @@ test("fixed OTP is limited to explicit development accounts", () => {
     assert.equal(getLocalOtp("09120000000"), null);
     process.env.NODE_ENV = "production";
     assert.equal(getLocalOtp("09128498877"), null);
+    process.env.TEST_AUTH_ENABLED = "true";
+    assert.equal(isLocalAuthEnabled(), true);
+    assert.equal(getLocalOtp("09128498877"), "112233");
+    process.env.TEST_AUTH_ENABLED = "false";
     process.env.NODE_ENV = "development";
     process.env.DEV_AUTH_ENABLED = "false";
     assert.equal(getLocalOtp("09128498877"), null);
