@@ -27,6 +27,24 @@ async function getSupplierById(req, res, next) {
   }
 }
 
+async function getMyProfile(req, res, next) {
+  try {
+    const supplier = await supplierService.getSupplierById(req.user.userId);
+    res.status(200).json(supplier);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateMyProfile(req, res, next) {
+  try {
+    const supplier = await supplierService.updateSupplier(req.user.userId, req.body);
+    res.status(200).json(supplier);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function updateSupplier(req, res, next) {
   try {
     const supplier = await supplierService.updateSupplier(req.params.id, req.body);
@@ -52,6 +70,42 @@ async function getCoverage(req, res, next) {
   try {
     const coverageRules = await supplierService.getCoverage(req.params.id);
     res.status(200).json(coverageRules);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getMyCoverage(req, res, next) {
+  try {
+    const coverageRules = await supplierService.getCoverage(req.user.userId);
+    res.status(200).json(coverageRules);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function addMyCoverage(req, res, next) {
+  try {
+    const supplier = await supplierService.addCoverage(req.user.userId, req.body);
+    res.status(200).json(supplier);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function replaceMyCoverage(req, res, next) {
+  try {
+    const supplier = await supplierService.replaceCoverage(req.user.userId, req.params.coverageId, req.body);
+    res.status(200).json(supplier);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function removeMyCoverage(req, res, next) {
+  try {
+    const supplier = await supplierService.removeCoverage(req.user.userId, req.params.coverageId);
+    res.status(200).json(supplier);
   } catch (error) {
     next(error);
   }
@@ -108,7 +162,13 @@ module.exports = {
   createSupplier,
   getSuppliers,
   getSupplierById,
+  getMyProfile,
+  updateMyProfile,
   getCoverage,
+  getMyCoverage,
+  addMyCoverage,
+  replaceMyCoverage,
+  removeMyCoverage,
   updateSupplier,
   deleteSupplier,
   addCoverage,

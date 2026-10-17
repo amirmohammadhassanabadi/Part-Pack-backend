@@ -7,6 +7,13 @@ const { validateBody, validateOffer } = require("../../../core/validation/valida
 
 const router = express.Router();
 
+router.get("/me/profile", authenticate, authorize("supplier"), supplierController.getMyProfile);
+router.patch("/me/profile", authenticate, authorize("supplier"), supplierController.updateMyProfile);
+router.get("/me/coverage", authenticate, authorize("supplier"), supplierController.getMyCoverage);
+router.post("/me/coverage", authenticate, authorize("supplier"), supplierController.addMyCoverage);
+router.put("/me/coverage/:coverageId", authenticate, authorize("supplier"), supplierController.replaceMyCoverage);
+router.delete("/me/coverage/:coverageId", authenticate, authorize("supplier"), supplierController.removeMyCoverage);
+
 router.get(
   "/me/invitations",
   authenticate,

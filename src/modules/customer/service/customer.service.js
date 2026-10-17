@@ -72,6 +72,31 @@ async function getCustomerById(id) {
   return customer;
 }
 
+async function updateCustomerStatus(id, isActive) {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("شناسه مشتری نامعتبر است");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const customer = await Customer.findByIdAndUpdate(
+    id,
+    { isActive: Boolean(isActive) },
+    { new: true, runValidators: true },
+  );
+  if (!customer) {
+    const error = new Error("مشتری پیدا نشد");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await Auth.findOneAndUpdate(
+    { refModel: "Customer", refId: customer._id },
+    { isActive: customer.isActive },
+  );
+  return customer;
+}
+
 // --- مدیریت فیلدهای Ref (Orders & Invoices) ---
 
 /**
@@ -143,6 +168,7 @@ module.exports = {
   createCustomer,
   getAllCustomers,
   getCustomerById,
+  updateCustomerStatus,
   addOrderToCustomer,
   addInvoiceToCustomer,
   addAddress,

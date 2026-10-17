@@ -174,6 +174,22 @@ async function getCustomerById(req, res, next) {
   }
 }
 
+async function updateCustomerStatus(req, res, next) {
+  try {
+    const customerId = validateObjectIdField(req.params.id, "customer id");
+    if (typeof req.body?.isActive !== "boolean") {
+      throw buildError("isActive must be boolean", 400);
+    }
+    const customer = await customerService.updateCustomerStatus(
+      customerId,
+      req.body.isActive,
+    );
+    return res.status(200).json(customer);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function addAddressToCustomer(req, res, next) {
   try {
     const customerId = validateObjectIdField(req.params.id, "customer id");
@@ -238,6 +254,7 @@ module.exports = {
   createCustomer,
   getAllCustomers,
   getCustomerById,
+  updateCustomerStatus,
   addAddressToCustomer,
   addCarToCustomer,
   addOrderToCustomer,

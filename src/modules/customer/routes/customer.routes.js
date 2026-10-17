@@ -49,6 +49,13 @@ router.get(
   customerController.getCustomerById,
 );
 
+router.patch(
+  "/:id/status",
+  authenticate,
+  authorize("admin", "operator"),
+  customerController.updateCustomerStatus,
+);
+
 // Add address
 router.post(
   "/:id/addresses",
