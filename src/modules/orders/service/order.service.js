@@ -126,6 +126,9 @@ function buildOrderFilter({ status, phase, search, from, to } = {}) {
  * - customer information
  */
 async function createOrder(customerId, items) {
+  if (Array.isArray(items) && items.some((item) => item?.bundleId || item?.type === "bundle")) {
+    return require("../../bundles/service/bundleOrder.service").createBundleOrder(customerId, items);
+  }
   if (!isValidObjectId(customerId)) {
     throw new Error("Invalid customer ID");
   }
@@ -347,7 +350,9 @@ async function getCustomerOrderById(customerId, orderId) {
   });
 
   if (!order) {
-    throw new Error("Order not found");
+    const error = new Error("Order not found");
+    error.statusCode = 404;
+    throw error;
   }
 
   return order;
@@ -585,6 +590,8 @@ async function cancelOrder(
     throw new Error("Invalid order ID");
   }
 
+  const isBundle = await Order.exists({ _id: orderId, kind: "bundle" });
+
   return withTransaction(async (session) => {
     const orderQuery = Order.findById(orderId);
     if (session) orderQuery.session(session);
@@ -596,6 +603,15 @@ async function cancelOrder(
 
     if (order.status === "cancelled") {
       throw new Error("Order is already cancelled");
+    }
+    if (order.kind === "bundle") {
+      const Payment = require("../../payment/model/payment.model");
+      if (["paid", "completed"].includes(order.status) || await Payment.exists({ orderId, status: { $in: ["created", "pending", "succeeded"] } }).session(session)) {
+        const error = new Error("سفارش دارای پرداخت فعال یا موفق قابل لغو نیست.");
+        error.statusCode = 409;
+        throw error;
+      }
+      await require("../../bundles/service/bundleOrder.service").releaseReservation(order, session);
     }
 
     const originalOrder = order.toObject();
@@ -678,7 +694,7 @@ async function cancelOrder(
     });
 
     return order;
-  });
+  }, { required: Boolean(isBundle) });
 }
 
 // ============================================================

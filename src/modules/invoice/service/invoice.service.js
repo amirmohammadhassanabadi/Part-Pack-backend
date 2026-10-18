@@ -246,6 +246,13 @@ async function markInvoiceAsPaid(id, actorId = null, { session = null } = {}) {
     throw error;
   }
 
+  if (!session) {
+    const candidate = await Invoice.findById(id).select("orderId");
+    if (candidate && await Order.exists({ _id: candidate.orderId, kind: "bundle" })) {
+      return require("../../../core/database/transaction").withTransaction((dbSession) => markInvoiceAsPaid(id, actorId, { session: dbSession }), { required: true });
+    }
+  }
+
   const invoiceQuery = Invoice.findById(id);
   if (session) invoiceQuery.session(session);
   const invoice = await invoiceQuery;
@@ -264,6 +271,16 @@ async function markInvoiceAsPaid(id, actorId = null, { session = null } = {}) {
     throw error;
   }
 
+  const bundleOrder = await Order.findOne({ _id: invoice.orderId, kind: "bundle" }).session(session);
+  if (bundleOrder) {
+    if (bundleOrder.status !== "awaiting_payment" || bundleOrder.bundleReservation?.status !== "reserved") {
+      const error = new Error("رزرو این سفارش دیگر فعال نیست.");
+      error.statusCode = 409;
+      throw error;
+    }
+    bundleOrder.status = "paid";
+    await bundleOrder.save({ session });
+  }
   invoice.status = "paid";
   await invoice.save(session ? { session } : undefined);
 
@@ -284,6 +301,14 @@ async function cancelInvoice(id, actorId = null, { session = null } = {}) {
     const error = new Error("Invalid invoice ID");
     error.statusCode = 400;
     throw error;
+  }
+
+  if (!session) {
+    const candidate = await Invoice.findById(id).select("orderId");
+    if (candidate && await Order.exists({ _id: candidate.orderId, kind: "bundle" })) {
+      await require("../../orders/service/order.service").cancelOrder(String(candidate.orderId), { cancelledBy: actorId });
+      return Invoice.findById(id);
+    }
   }
 
   const invoiceQuery = Invoice.findById(id);

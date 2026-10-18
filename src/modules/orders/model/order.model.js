@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema(
   {
+    kind: { type: String, enum: ["quotation", "bundle"], default: "quotation" },
+    bundleReservation: {
+      status: { type: String, enum: ["reserved", "released"], default: undefined },
+      expiresAt: { type: Date, default: null },
+    },
     status: {
       type: String,
       enum: [
@@ -96,10 +101,13 @@ const orderSchema = new mongoose.Schema(
 
     items: [
       {
+        type: { type: String, enum: ["part", "bundle"], default: "part" },
+        bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", default: null, required: function () { return this.type === "bundle"; } },
+        bundleSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
         partId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Part",
-          required: true,
+          required: function () { return this.type !== "bundle"; },
         },
 
         carModelId: {
@@ -111,7 +119,7 @@ const orderSchema = new mongoose.Schema(
         categoryId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "PartCategory",
-          required: true,
+          required: function () { return this.type !== "bundle"; },
         },
 
         title: {

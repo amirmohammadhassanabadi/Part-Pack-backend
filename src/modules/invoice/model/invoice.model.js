@@ -30,10 +30,13 @@ const invoiceSchema = new mongoose.Schema(
 
     lines: [
       {
+        type: { type: String, enum: ["part", "bundle"], default: "part" },
+        bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", default: null, required: function () { return this.type === "bundle"; } },
+        bundleSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
         partId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Part",
-          required: true,
+          required: function () { return this.type !== "bundle"; },
         },
         carModelId: {
           type: mongoose.Schema.Types.ObjectId,

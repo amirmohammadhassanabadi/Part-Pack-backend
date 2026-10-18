@@ -23,7 +23,8 @@ function validateCreateOrder(body) {
     throw new Error("items must contain at least one item");
   }
   for (const item of body.items) {
-    requiredString(item?.partId, "partId");
+    if (item?.bundleId || item?.type === "bundle") requiredString(item?.bundleId, "bundleId");
+    else requiredString(item?.partId, "partId");
     // The backend resolves compatibility/matching from the part when no model is supplied.
     if (!Number.isInteger(item.qty) || item.qty < 1) {
       throw new Error("qty must be a positive integer");

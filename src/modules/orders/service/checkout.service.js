@@ -66,6 +66,7 @@ async function prepareCheckout(orderId, customerId, payload = {}) {
       error.statusCode = 400;
       throw error;
     }
+    require("../../bundles/service/bundleOrder.service").assertReservation(order);
     const pendingPayment = await Payment.exists({ orderId, status: { $in: ["pending", "succeeded"] } }).session(session);
     if (pendingPayment) {
       const error = new Error("Checkout cannot be changed after starting payment");
@@ -103,7 +104,7 @@ async function prepareCheckout(orderId, customerId, payload = {}) {
     }
 
     const availableItems = order.items.filter(
-      (item) => item.availability.status === "available" && item.selectedOffer,
+      (item) => item.availability.status === "available" && (item.type === "bundle" || item.selectedOffer),
     );
     if (availableItems.length === 0) {
       const error = new Error("At least one selected available item is required");
@@ -114,8 +115,8 @@ async function prepareCheckout(orderId, customerId, payload = {}) {
     let subtotal = 0;
     for (const item of order.items) {
       if (item.availability.status === "unavailable") continue;
-      const quantity = item.selectedOffer?.selectedQuantity;
-      const unitPrice = item.selectedOffer?.customerUnitPrice ?? item.unitPrice;
+      const quantity = item.type === "bundle" ? item.qty : item.selectedOffer?.selectedQuantity;
+      const unitPrice = item.type === "bundle" ? item.unitPrice : item.selectedOffer?.customerUnitPrice ?? item.unitPrice;
       if (!Number.isInteger(quantity) || quantity < 1 || typeof unitPrice !== "number" || unitPrice < 0) {
         const error = new Error(`Selected pricing is incomplete for item "${item.title}"`);
         error.statusCode = 400;
