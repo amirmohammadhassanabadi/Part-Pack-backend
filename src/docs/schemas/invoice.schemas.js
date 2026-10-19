@@ -68,7 +68,7 @@
  *         supplierName:
  *           type: string
  *           nullable: true
- *           example: Part Pack
+ *           example: Part Pax
  *         partNumber:
  *           type: string
  *           nullable: true

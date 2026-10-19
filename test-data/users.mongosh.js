@@ -6,8 +6,8 @@
 
   const now = new Date();
   const accounts = [
-    { phone: "09128498876", name: "مدیر تست پارت‌پک", role: "admin", collection: "staffs", model: "Staff" },
-    { phone: "09128498877", name: "مشتری تست پارت‌پک", role: "customer", collection: "customers", model: "Customer" },
+    { phone: "09128498876", name: "مدیر تست پارت پکس", role: "admin", collection: "staffs", model: "Staff" },
+    { phone: "09128498877", name: "مشتری تست پارت پکس", role: "customer", collection: "customers", model: "Customer" },
     { phone: "09128498878", name: "تأمین‌کننده تست اول", role: "supplier", collection: "suppliers", model: "Supplier" },
     { phone: "09128498879", name: "تأمین‌کننده تست دوم", role: "supplier", collection: "suppliers", model: "Supplier" },
     { phone: "09128498880", name: "اپراتور تست تأمین و فروش", role: "operator", collection: "staffs", model: "Staff" },

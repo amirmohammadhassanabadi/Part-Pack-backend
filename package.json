@@ -15,7 +15,7 @@
   "keywords": [],
   "author": "hasanabadi.am1380@gmail.com",
   "license": "ISC",
-  "description": "Part-Pack App",
+  "description": "Part Pax App",
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.79.0",

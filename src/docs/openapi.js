@@ -5,9 +5,9 @@ const options = {
     openapi: "3.0.3",
 
     info: {
-      title: "Part Pack API",
+      title: "Part Pax API",
       version: "1.0.0",
-      description: "Part-Pack backend API documentation",
+      description: "Part Pax backend API documentation",
     },
 
     servers: [

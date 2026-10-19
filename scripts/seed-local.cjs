@@ -30,13 +30,13 @@ async function main() {
   assertLocal();
   await mongoose.connect(process.env.MONGO_URI);
   fs.mkdirSync(local, { recursive: true });
-  const admin = await upsert(Staff, { phone: "09128498876" }, { fullName: "مدیر تست پارت‌پک", phone: "09128498876", role: "admin", isActive: true });
+  const admin = await upsert(Staff, { phone: "09128498876" }, { fullName: "مدیر تست پارت پکس", phone: "09128498876", role: "admin", isActive: true });
   const operator = await upsert(Staff, { phone: "09128498880" }, { fullName: "اپراتور تست تأمین و فروش", phone: "09128498880", role: "operator", isActive: true });
   await identity(admin.phone, "admin", "Staff", admin);
   await identity(operator.phone, "operator", "Staff", operator);
   let customer = await Customer.findOne({ phone: "09128498877" });
   if (!customer) customer = await Customer.create({
-    phone: "09128498877", fullName: "مشتری تست پارت‌پک", addresses: [
+    phone: "09128498877", fullName: "مشتری تست پارت پکس", addresses: [
       { title: "خانه", province: "تهران", city: "تهران", line: "خیابان تست، کوچه نمونه، پلاک ۱۰", postalCode: "1234567890" },
       { title: "محل کار", province: "البرز", city: "کرج", line: "بلوار نمونه، ساختمان تست، طبقه ۲", postalCode: "1234567891" },
     ],
