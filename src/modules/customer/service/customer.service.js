@@ -23,7 +23,7 @@ async function getCustomerById(id) {
     throw error;
   }
   const customer = await Customer.findById(id)
-    .populate("carModels.carModelId")
+    .populate({ path: "carModels.carModelId", populate: { path: "brand", select: "name logoUrl" } })
     .populate("orders")
     .populate("invoices");
 
@@ -87,7 +87,7 @@ async function addAddress(customerId, addressData) {
 
   customer.addresses.push(addressData);
   await customer.save();
-  return customer;
+  return getCustomerById(customerId);
 }
 
 async function addCarToCustomer(customerId, carData) {
@@ -103,10 +103,48 @@ async function addCarToCustomer(customerId, carData) {
 
   customer.carModels.push(carData);
   await customer.save();
-  return customer;
+  return getCustomerById(customerId);
+}
+
+// Keep the existing array format; guard writes against stale browser state.
+async function changeCustomerEntry(customerId, collection, entryId, data, expected) {
+  const customer = await Customer.findById(customerId);
+  if (!customer) throw Object.assign(new Error("مشتری یافت نشد"), { statusCode: 404 });
+  const entries = customer[collection].map((entry) => entry.toObject());
+  const index = collection === "addresses"
+    ? entries.findIndex((entry) => String(entry._id) === entryId)
+    : Number(entryId);
+  if (!Number.isInteger(index) || index < 0 || index >= entries.length) {
+    throw Object.assign(new Error("مورد انتخاب‌شده یافت نشد"), { statusCode: 404 });
+  }
+  if (collection === "carModels") {
+    const current = entries[index];
+    if (!expected || String(current.carModelId) !== expected.carModelId ||
+        (current.year || "") !== (expected.year || "") || (current.vin || "") !== (expected.vin || "")) {
+      throw Object.assign(new Error("اطلاعات گاراژ تغییر کرده است؛ صفحه را دوباره باز کنید."), { statusCode: 409 });
+    }
+    if (data && !await CarModel.exists({ _id: data.carModelId })) {
+      throw Object.assign(new Error("مدل خودرو یافت نشد"), { statusCode: 404 });
+    }
+  }
+  const next = [...entries];
+  if (data) next[index] = { ...data, ...(collection === "addresses" ? { _id: entries[index]._id } : {}) };
+  else next.splice(index, 1);
+  customer.set(collection, next);
+  await customer.validate();
+  const updated = await Customer.updateOne(
+    { _id: customer._id, [collection]: entries },
+    { $set: { [collection]: customer[collection].map((entry) => entry.toObject()) }, $inc: { __v: 1 } },
+    { runValidators: true },
+  );
+  if (!updated.matchedCount) {
+    throw Object.assign(new Error("اطلاعات تغییر کرده است؛ صفحه را دوباره باز کنید."), { statusCode: 409 });
+  }
+  return getCustomerById(customerId);
 }
 
 module.exports = {
+  changeCustomerEntry,
   createCustomer,
   getAllCustomers,
   getCustomerById,

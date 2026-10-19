@@ -74,6 +74,15 @@ router.post(
   customerController.addCarToCustomer,
 );
 
+// Editing saved entries uses the same ownership checks as reading the profile.
+for (const [path, update, remove] of [
+  ["addresses", customerController.updateAddress, customerController.deleteAddress],
+  ["car-models", customerController.updateCar, customerController.deleteCar],
+]) {
+  router.put(`/:id/${path}/:entryId`, authenticate, authorize("admin", "operator", "customer"), authorizeCustomerOwnership, update);
+  router.delete(`/:id/${path}/:entryId`, authenticate, authorize("admin", "operator", "customer"), authorizeCustomerOwnership, remove);
+}
+
 // ============================================================
 // Internal operations
 // ============================================================

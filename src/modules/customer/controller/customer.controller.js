@@ -250,7 +250,26 @@ async function addInvoiceToCustomer(req, res, next) {
   }
 }
 
+function changeEntry(collection, remove = false) {
+  return async (req, res, next) => {
+    try {
+      const customerId = validateObjectIdField(req.params.id, "customer id");
+      const entryId = collection === "addresses"
+        ? validateObjectIdField(req.params.entryId, "address id") : req.params.entryId;
+      if (collection === "carModels" && !/^\d+$/.test(entryId)) throw buildError("invalid vehicle index");
+      const payload = remove ? null : collection === "addresses"
+        ? validateAddressInput(req.body) : validateCarInput(req.body);
+      const customer = await customerService.changeCustomerEntry(customerId, collection, entryId, payload, req.body?.expected);
+      res.status(200).json(customer);
+    } catch (error) { next(error); }
+  };
+}
+
 module.exports = {
+  updateAddress: changeEntry("addresses"),
+  deleteAddress: changeEntry("addresses", true),
+  updateCar: changeEntry("carModels"),
+  deleteCar: changeEntry("carModels", true),
   createCustomer,
   getAllCustomers,
   getCustomerById,
