@@ -19,7 +19,7 @@ variables:
 build_dev:
   stage: build
   tags:
-    - part-pack-backend
+    - part-pax-backend
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
   script:
@@ -28,7 +28,7 @@ build_dev:
 build_prod:
   stage: build
   tags:
-    - part-pack-backend
+    - part-pax-backend
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
   script:
@@ -39,7 +39,7 @@ deploy_dev:
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
   tags:
-    - part-pack-backend
+    - part-pax-backend
   needs:
     - build_dev
   script:
@@ -48,7 +48,7 @@ deploy_dev:
 deploy_prod:
   stage: deploy
   tags:
-    - part-pack-backend
+    - part-pax-backend
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
   needs:
