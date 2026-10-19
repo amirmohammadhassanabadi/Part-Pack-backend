@@ -42,6 +42,7 @@ function validateCreateCustomerBody(body) {
   const payload = {
     fullName,
     phone,
+    ...require("../../accounts/service/profile-completion").pickProfileFields(body, "customer"),
   };
 
   if (body.addresses !== undefined) {

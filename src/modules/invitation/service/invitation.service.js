@@ -334,6 +334,9 @@ async function getInvitation(rawToken, { markOpened = false, supplierId = null, 
     throw error;
   }
 
+  if (!supplierId && !await Supplier.exists({ _id: invitation.supplierId, isActive: true })) {
+    throw Object.assign(new Error("حساب تأمین‌کننده غیرفعال شده است."), { statusCode: 403, code: "ACCOUNT_DISABLED" });
+  }
   const wasSent = invitation.lifecycle.status === "sent";
   if (markOpened && wasSent) {
     invitation.lifecycle.status = "opened";
@@ -493,6 +496,7 @@ async function getSupplierInvitation(rawToken, supplierId = null) {
 
 async function addOffer(rawToken, itemKey, payload, supplierId = null) {
   const invitation = await assertWritableInvitation(rawToken, supplierId);
+  await require("../../accounts/service/profile-completion").requireCompleteProfile("supplier", invitation.supplierId);
   const item = getInvitationItem(invitation, itemKey);
   const offerData = validateOfferPayload(payload);
   item.offers.push(offerData);
@@ -524,6 +528,7 @@ async function addOffer(rawToken, itemKey, payload, supplierId = null) {
 
 async function updateOffer(rawToken, itemKey, offerId, payload, supplierId = null) {
   const invitation = await assertWritableInvitation(rawToken, supplierId);
+  await require("../../accounts/service/profile-completion").requireCompleteProfile("supplier", invitation.supplierId);
   const item = getInvitationItem(invitation, itemKey);
   const offer = item.offers.id(offerId);
   if (!offer) {
@@ -555,6 +560,7 @@ async function updateOffer(rawToken, itemKey, offerId, payload, supplierId = nul
 
 async function deleteOffer(rawToken, itemKey, offerId, supplierId = null) {
   const invitation = await assertWritableInvitation(rawToken, supplierId);
+  await require("../../accounts/service/profile-completion").requireCompleteProfile("supplier", invitation.supplierId);
   const item = getInvitationItem(invitation, itemKey);
   const offer = item.offers.id(offerId);
   if (!offer) {

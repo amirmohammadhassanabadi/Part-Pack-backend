@@ -36,8 +36,10 @@ test("bundle commerce on an isolated replica set", { skip: !process.env.BUNDLE_T
   await mongoose.connect(process.env.BUNDLE_TEST_MONGO_URL, { dbName: `bundle_test_${crypto.randomBytes(8).toString("hex")}` });
   t.after(async () => { await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
   await Promise.all([Bundle.init(), Order.init(), Invoice.init(), Payment.init(), Invitation.init()]);
-  const customer = await Customer.create({ fullName: "Bundle customer", phone: "09120000000" });
-  const other = await Customer.create({ fullName: "Other customer", phone: "09120000001" });
+  const accountService = require("../src/modules/accounts/service/account.service");
+  const supplierAccount = await accountService.createAccount("supplier", { name: "Test supplier", contacts: { mobile: "09120000002" } });
+  const customer = await accountService.createAccount("customer", { nationalCode: "1234567891", fullName: "Bundle customer", phone: "09120000000" });
+  const other = await accountService.createAccount("customer", { nationalCode: "1234567891", fullName: "Other customer", phone: "09120000001" });
   const customerId = String(customer._id);
   const create = (bundle, qty = 1, extra = {}) => orderService.createOrder(customerId, [{ type: "bundle", bundleId: String(bundle._id), qty, ...extra }]);
   const address = { title: "Home", province: "Tehran", city: "Tehran", line: "Test address" };
@@ -51,7 +53,7 @@ test("bundle commerce on an isolated replica set", { skip: !process.env.BUNDLE_T
     try {
       const base = `http://127.0.0.1:${server.address().port}/api/v1`;
       const request = async (path, role, options = {}) => {
-        const response = await fetch(`${base}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(role ? { Authorization: `Bearer ${jwt.sign({ role, userId: role === "customer" ? customerId : String(new mongoose.Types.ObjectId()) }, process.env.JWT_ACCESS_SECRET)}` } : {}) } });
+        const response = await fetch(`${base}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(role ? { Authorization: `Bearer ${jwt.sign({ role, userId: role === "customer" ? customerId : role === "supplier" ? String(supplierAccount._id) : String(new mongoose.Types.ObjectId()) }, process.env.JWT_ACCESS_SECRET)}` } : {}) } });
         return { status: response.status, body: await response.json() };
       };
       assert.equal((await request("/bundles/admin")).status, 401);

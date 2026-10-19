@@ -59,10 +59,9 @@ async function verifyOtp(phone, code) {
   await redis.del(`otp:${phone}`);
   await redis.del(`otp_attempts:${phone}`);
 
-  const authUser = await Auth.findOne({ phone, isActive: true });
-  if (!authUser) {
-    return { registered: false };
-  }
+  const authUser = await Auth.findOne({ phone });
+  if (!authUser) return { registered: false };
+  if (!authUser.isActive) throw Object.assign(new Error("این حساب غیرفعال شده است؛ برای بررسی با پشتیبانی تماس بگیرید."), { statusCode: 403 });
 
   return issueTokens(authUser);
 }
@@ -75,6 +74,7 @@ async function issueTokens(authUser) {
       userId: authUser.refId,
       role: authUser.role,
       refModel: authUser.refModel,
+      sessionVersion: authUser.sessionVersion || 0,
     },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
@@ -90,6 +90,8 @@ async function issueTokens(authUser) {
     REFRESH_TOKEN_TTL,
   );
 
+  await redis.set(`refreshVersion:${newRefreshToken}`, String(authUser.sessionVersion || 0), "EX", REFRESH_TOKEN_TTL);
+
   return {
     registered: true,
     accessToken,
@@ -98,6 +100,7 @@ async function issueTokens(authUser) {
       userId: authUser.refId,
       role: authUser.role,
       refModel: authUser.refModel,
+      sessionVersion: authUser.sessionVersion || 0,
     },
   };
 }
@@ -114,9 +117,11 @@ async function refreshToken(token) {
   // lookup Auth document by its own _id
   const authUser = await Auth.findOne({ _id: authId, isActive: true });
   if (!authUser) {
-    throw new Error("User not found or deactivated.");
+    throw Object.assign(new Error("User not found or deactivated."), { statusCode: 401 });
   }
 
+  const savedVersion = Number(await redis.get(`refreshVersion:${token}`) || 0);
+  if (savedVersion !== (authUser.sessionVersion || 0)) throw Object.assign(new Error("نشست پایان یافته است؛ دوباره وارد شوید."), { statusCode: 401 });
   await assertAccountReady(authUser);
 
   const accessToken = jwt.sign(
@@ -124,6 +129,7 @@ async function refreshToken(token) {
       userId: authUser.refId,
       role: authUser.role,
       refModel: authUser.refModel,
+      sessionVersion: authUser.sessionVersion || 0,
     },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
@@ -140,7 +146,7 @@ async function logout(refreshToken) {
     throw new Error("Session not found or already logged out.");
   }
 
-  await redis.del(`refresh:${refreshToken}`);
+  await redis.del(`refresh:${refreshToken}`, `refreshVersion:${refreshToken}`);
 
   return { success: true };
 }

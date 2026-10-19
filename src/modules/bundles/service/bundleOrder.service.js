@@ -22,6 +22,7 @@ function validateItems(items) {
 }
 
 async function createBundleOrder(customerId, items) {
+  await require("../../accounts/service/profile-completion").requireCompleteProfile("customer", customerId);
   objectId(customerId);
   validateItems(items);
   return withTransaction(async (session) => {

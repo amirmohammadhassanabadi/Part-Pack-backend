@@ -129,6 +129,7 @@ async function createOrder(customerId, items) {
   if (Array.isArray(items) && items.some((item) => item?.bundleId || item?.type === "bundle")) {
     return require("../../bundles/service/bundleOrder.service").createBundleOrder(customerId, items);
   }
+  await require("../../accounts/service/profile-completion").requireCompleteProfile("customer", customerId);
   if (!isValidObjectId(customerId)) {
     throw new Error("Invalid customer ID");
   }

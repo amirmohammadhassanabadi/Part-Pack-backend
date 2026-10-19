@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const { identityFields } = require("../../accounts/service/profile-completion");
 const { mobileField } = require("../../../core/validation/phone");
 
 const customerSchema = new mongoose.Schema(
   {
+    ...identityFields(),
     fullName: {
       type: String,
       required: true,

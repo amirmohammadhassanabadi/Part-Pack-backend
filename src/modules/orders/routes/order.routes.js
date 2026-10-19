@@ -11,6 +11,7 @@ const {
   validateSelectOffers,
 } = require("../../../core/validation/validate");
 
+const requireCompletion = require("../../accounts/middleware/profile-completion");
 const router = express.Router();
 
 // Create order
@@ -49,6 +50,7 @@ router.post(
   "/my-orders/:id/select-offers",
   authenticate,
   authorize("customer"),
+  requireCompletion,
   orderController.selectCustomerOffers,
 );
 
@@ -56,6 +58,7 @@ router.post(
   "/my-orders/:id/checkout",
   authenticate,
   authorize("customer"),
+  requireCompletion,
   orderController.prepareCheckout,
 );
 

@@ -30,14 +30,14 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
   const category = await Category.create({ name: "Brakes", slug: "brakes" });
   const brand = await Brand.create({ name: "Test brand", slug: "test-brand" });
   const model = await CarModel.create({ name: "Test model", slug: "test-model", brand: brand._id, yearRange: { from: "2020", to: "2026" } });
-  const customer = await Customer.create({ fullName: "Flow customer", phone: "09120000000" });
+  const customer = await Customer.create({ nationalCode: "1234567891", fullName: "Flow customer", phone: "09120000000" });
   const operatorId = new mongoose.Types.ObjectId();
   const parts = await Part.create([
     { name: "Brake pad", categoryId: category._id, compatibility: [model._id] },
     { name: "Brake disc", categoryId: category._id, compatibility: [model._id] },
   ]);
   const items = parts.map((part) => ({ partId: String(part._id), qty: 2 }));
-  const supplier = await Supplier.create({ name: "Supplier", contacts: { mobile: "09120000001" }, coverageRules: [{ vehicleBrandId: brand._id, carModelIds: [model._id], partCategoryIds: [category._id] }] });
+  const supplier = await Supplier.create({ nationalCode: "1234567891", name: "Supplier", contacts: { mobile: "09120000001" }, coverageRules: [{ vehicleBrandId: brand._id, carModelIds: [model._id], partCategoryIds: [category._id] }] });
   const address = { title: "Home", province: "Tehran", city: "Tehran", line: "Test address" };
 
   await t.test("supplier profile preserves login contacts and recovers legacy mobile for coverage saves", async () => {
@@ -106,6 +106,12 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     await assert.rejects(invitationService.getSupplierInvitation(String(invitation._id), stranger), /not found/);
     await invitationService.getSupplierInvitation(String(invitation._id), String(supplier._id));
     const itemKey = invitation.items[0].itemKey;
+    await Supplier.updateOne({ _id: supplier._id }, { $unset: { nationalCode: "" } });
+    const blockedOffer = { availability: "unavailable", description: "Incomplete profile" };
+    await assert.rejects(invitationService.addOffer(token, itemKey, blockedOffer), { code: "PROFILE_INCOMPLETE" });
+    await assert.rejects(invitationService.addOffer(String(invitation._id), itemKey, blockedOffer, String(supplier._id)), { code: "PROFILE_INCOMPLETE" });
+    assert.equal((await Invitation.findById(invitation._id)).items[0].offers.length, 0);
+    await Supplier.updateOne({ _id: supplier._id }, { $set: { nationalCode: "1234567891" } });
     await invitationService.addOffer(token, itemKey, { availability: "available", brandName: "Supplier brand", unitPrice: 1000, availableQuantity: 2 });
     await assert.rejects(invitationService.addOffer(String(invitation._id), itemKey, { availability: "unavailable", description: "Other supplier" }, stranger), /not found/);
     const ownOffer = await invitationService.addOffer(String(invitation._id), itemKey, { availability: "unavailable", description: "Own account" }, String(supplier._id));
@@ -188,7 +194,7 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     assert.equal(invoice.total, 2400);
     assert.equal(invoice.shippingAddress.line, address.line);
     assert.equal((await Customer.findById(customer._id)).addresses.length, 1);
-    const other = await Customer.create({ fullName: "Other", phone: "09120000002", addresses: [address] });
+    const other = await Customer.create({ nationalCode: "1234567891", fullName: "Other", phone: "09120000002", addresses: [address] });
     await assert.rejects(prepareCheckout(orderId, String(customer._id), { addressId: String(other.addresses[0]._id) }), /not found/);
     const previousProvider = process.env.PAYMENT_PROVIDER;
     delete process.env.PAYMENT_PROVIDER;
@@ -221,7 +227,7 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     assert.equal((await orderService.getCustomerOrders(String(customer._id), { status: "paid" })).pagination.total, 1);
   });
   await t.test("customer and supplier lists, counts and details remain scoped to the signed-in account", async () => {
-    const otherCustomer = await Customer.create({ fullName: "Other customer", phone: "09120000008" });
+    const otherCustomer = await Customer.create({ nationalCode: "1234567891", fullName: "Other customer", phone: "09120000008" });
     const otherOrder = await orderService.createOrder(String(otherCustomer._id), items);
     const ownOrders = await orderService.getCustomerOrders(String(customer._id));
     const otherOrders = await orderService.getCustomerOrders(String(otherCustomer._id));
@@ -232,7 +238,7 @@ test("sales flow with an isolated MongoDB replica set", { skip: !process.env.SAL
     await assert.rejects(orderService.getCustomerOrderById(String(customer._id), String(otherOrder._id)), /not found/i);
     await assert.rejects(orderService.getCustomerOrderById(String(otherCustomer._id), orderId), /not found/i);
 
-    const otherSupplier = await Supplier.create({ name: "Other supplier", contacts: { mobile: "09120000007" } });
+    const otherSupplier = await Supplier.create({ nationalCode: "1234567891", name: "Other supplier", contacts: { mobile: "09120000007" } });
     const originalInvitation = await Invitation.findOne({ orderId: otherOrder._id, supplierId: supplier._id });
     const otherInvitationData = originalInvitation.toObject();
     delete otherInvitationData._id;

@@ -32,6 +32,8 @@ const authSchema = new mongoose.Schema(
       refPath: "refModel",
     },
 
+    sessionVersion: { type: Number, default: 0, min: 0 },
+
     isActive: {
       type: Boolean,
       required: true,

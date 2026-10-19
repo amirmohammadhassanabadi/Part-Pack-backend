@@ -32,8 +32,8 @@ test("account integrity and admin repair", { skip: !process.env.SALES_TEST_MONGO
   });
 
   await t.test("creates complete accounts for all roles and normalizes Persian digits", async () => {
-    supplier = await service.createAccount("supplier", { name: "Supplier", contacts: { mobile: "۰۹۱۲۰۰۰۰۰۰۱" } });
-    customer = await service.createAccount("customer", { fullName: "Customer", phone: "09120000002" });
+    supplier = await service.createAccount("supplier", { name: "Supplier", nationalCode: "1234567891", contacts: { mobile: "۰۹۱۲۰۰۰۰۰۰۱" } });
+    customer = await service.createAccount("customer", { fullName: "Customer", nationalCode: "1234567891", phone: "09120000002" });
     staff = await service.createAccount("staff", { fullName: "Staff", phone: "09120000003", role: "operator" });
     assert.equal(supplier.contacts.mobile, "09120000001");
     const rows = await service.listAccounts();
@@ -65,7 +65,7 @@ test("account integrity and admin repair", { skip: !process.env.SALES_TEST_MONGO
     assert.equal(before.integrity.complete, false);
     assert.equal(before.phone, undefined);
     assert.equal(before.loginPhone, "09120000005");
-    await supplierService.updateMyProfile(legacyId, { name: "Legacy repaired" });
+    await supplierService.updateMyProfile(legacyId, { name: "Legacy repaired", nationalCode: "1234567891" });
     assert.equal((await Supplier.collection.findOne({ _id: legacyId })).contacts.mobile, "09120000005");
     assert.equal((await Auth.findOne({ refId: legacyId })).refModel, "Supplier");
     assert.equal((await service.listAccounts()).find((row) => String(row._id) === String(legacyId)).integrity.complete, true);
@@ -131,7 +131,11 @@ test("account integrity and admin repair", { skip: !process.env.SALES_TEST_MONGO
     await once(server, "listening");
     t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));
     const origin = `http://127.0.0.1:${server.address().port}/users`;
-    const request = (role, path = "", body) => fetch(origin + path, { method: body ? "PATCH" : "GET", headers: { Authorization: `Bearer ${jwt.sign({ role, userId: String(staff._id) }, process.env.JWT_ACCESS_SECRET)}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const request = async (role, path = "", body) => {
+      const userId = role === "customer" ? customer._id : role === "supplier" ? supplier._id : staff._id;
+      const current = await Auth.findOne({ refId: userId, role });
+      return fetch(origin + path, { method: body ? "PATCH" : "GET", headers: { Authorization: `Bearer ${jwt.sign({ role, userId: String(userId), sessionVersion: current?.sessionVersion || 0 }, process.env.JWT_ACCESS_SECRET)}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    };
     assert.equal((await fetch(origin)).status, 401);
     for (const role of ["supplier", "customer", "operator"]) {
       assert.equal((await request(role)).status, 403);

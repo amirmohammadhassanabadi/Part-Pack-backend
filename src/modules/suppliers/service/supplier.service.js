@@ -126,7 +126,7 @@ async function getSuppliers(filters = {}) {
 }
 
 async function updateMyProfile(id, data) {
-  const updates = {};
+  const updates = require("../../accounts/service/profile-completion").pickProfileFields(data, "supplier");
   for (const field of ["name", "address"]) {
     if (Object.hasOwn(data, field)) updates[field] = data[field];
   }

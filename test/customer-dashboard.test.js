@@ -52,9 +52,13 @@ test("saved entries persist without replacing another vehicle or address", async
   await assert.rejects(service.changeCustomerEntry(customerId, "addresses", String(customer.addresses[0]._id), null), { statusCode: 409 });
 });
 
-test("all saved-entry routes reject access to another customer's records", async () => {
+test("all saved-entry routes reject access to another customer's records", async (t) => {
   const jwt = require("jsonwebtoken");
   const router = require("../src/modules/customer/routes/customer.routes");
+  const Auth = require("../src/modules/auth/model/auth.model");
+  const originalAuthFind = Auth.findOne;
+  t.after(() => { Auth.findOne = originalAuthFind; });
+  Auth.findOne = () => ({ select: () => ({ lean: async () => ({ isActive: true, sessionVersion: 0 }) }) });
   const secret = process.env.JWT_ACCESS_SECRET;
   process.env.JWT_ACCESS_SECRET = "customer-dashboard-test-only";
   try {
