@@ -213,15 +213,18 @@ async function confirmOrder(req, res, next) {
 async function cancelOrder(req, res, next) {
   try {
     const { id } = req.params;
+    const reason = req.body?.reason;
+    if (req.body?.confirm !== true || typeof reason !== "string" || reason.trim().length < 3 || reason.trim().length > 1000) return res.status(400).json({ message: "دلیل لغو را بین ۳ تا ۱۰۰۰ نویسه وارد و لغو را تأیید کنید." });
 
     const order = await orderService.cancelOrder(id, {
-      reason: req.body?.reason,
+      reason: reason.trim(),
+      actorRole: req.user.role,
       cancelledBy: req.user.userId,
     });
 
     return res.status(200).json({
       success: true,
-      data: order,
+      data: req.user.role === "customer" ? require("../service/orderView").customerOrderView(order) : order,
     });
   } catch (error) {
     next(error);

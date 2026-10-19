@@ -16,7 +16,10 @@ async function authenticate(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
-    if (["customer", "supplier"].includes(decoded.role)) {
+    // Pre-tracking tokens must refresh once so each browser gets a revocable session ID.
+    if (decoded.refModel && !decoded.sid) return res.status(401).json({ success: false, message: "نشست باید تمدید شود." });
+    if (decoded.sid) await require("../service/session.service").assertSession(decoded.sid, decoded);
+    if (decoded.sid || ["customer", "supplier"].includes(decoded.role)) {
       const account = await Auth.findOne({ refId: decoded.userId, role: decoded.role }).select("isActive sessionVersion").lean();
       if (!account || !account.isActive || (account.sessionVersion || 0) !== (decoded.sessionVersion || 0)) {
         return res.status(401).json({ success: false, code: "ACCOUNT_DISABLED", message: "حساب غیرفعال شده یا نشست آن پایان یافته است." });
@@ -26,6 +29,7 @@ async function authenticate(req, res, next) {
 
     next();
   } catch (error) {
+    if (error.statusCode === 401) return res.status(401).json({ success: false, message: error.message });
     if (!["JsonWebTokenError", "TokenExpiredError", "NotBeforeError", "CastError"].includes(error.name)) return next(error);
     return res.status(401).json({
       success: false,

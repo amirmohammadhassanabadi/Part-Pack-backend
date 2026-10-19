@@ -49,6 +49,7 @@ app.use("/api/v1/customers", customerRouter);
 app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/parts", partsRouter);
 app.use("/api/v1/bundles", require("./modules/bundles"));
+app.use("/api/v1/discounts", require("./modules/discounts"));
 app.use("/api/v1/orders", orderRouter);
 app.use("/api/v1/invoices", invoiceRouter);
 app.use("/api/v1/invitations", invitationRouter);

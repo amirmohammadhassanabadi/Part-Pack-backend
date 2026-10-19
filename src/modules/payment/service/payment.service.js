@@ -32,6 +32,10 @@ async function createSessionForOrder(orderId, customerId) {
       return { order, payment, reuse: true };
     }
     if (isBundle && payment?.status === "created") throw Object.assign(new Error("درخواست پرداخت در حال پردازش است؛ کمی صبر کنید."), { statusCode: 409 });
+    if (order.checkout.discountCode) {
+      const discount = await require("../../orders/service/discount.service").getDiscount(order.checkout.discountCode, order.checkout.subtotal, dbSession, order);
+      if (discount.amount !== order.checkout.discountAmount) throw Object.assign(new Error("شرایط تخفیف تغییر کرده؛ مبلغ سفارش را دوباره محاسبه کنید."), { statusCode: 409 });
+    }
     assertReservation(order);
     if (!payment) {
       [payment] = await Payment.create([{ orderId: order._id, customerId, amount: order.checkout.total, currency: order.checkout.currency || "IRR" }], { session: dbSession });

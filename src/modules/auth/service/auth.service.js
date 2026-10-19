@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const sessions = require("./session.service");
 const Auth = require("../model/auth.model");
 const { assertAccountReady } = require("../../accounts/service/account.service");
 const { getRedisClient } = require("../../../core/database/redis");
@@ -38,7 +39,7 @@ async function requestOtp(phone, otpWay) {
   return { success: true };
 }
 
-async function verifyOtp(phone, code) {
+async function verifyOtp(phone, code, context = {}) {
   const redis = getRedisClient();
 
   const storedOtp = await redis.get(`otp:${phone}`);
@@ -63,24 +64,25 @@ async function verifyOtp(phone, code) {
   if (!authUser) return { registered: false };
   if (!authUser.isActive) throw Object.assign(new Error("این حساب غیرفعال شده است؛ برای بررسی با پشتیبانی تماس بگیرید."), { statusCode: 403 });
 
-  return issueTokens(authUser);
+  return issueTokens(authUser, context);
 }
 
-async function issueTokens(authUser) {
+async function issueTokens(authUser, context = {}) {
   await assertAccountReady(authUser);
   const redis = getRedisClient();
+  const newRefreshToken = crypto.randomBytes(64).toString("hex");
+  const sid = await sessions.registerSession(newRefreshToken, authUser, context);
   const accessToken = jwt.sign(
     {
       userId: authUser.refId,
       role: authUser.role,
       refModel: authUser.refModel,
       sessionVersion: authUser.sessionVersion || 0,
+      sid,
     },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
-
-  const newRefreshToken = crypto.randomBytes(64).toString("hex");
 
   // store Auth._id in Redis — used internally to re-fetch Auth document on refresh
   await redis.set(
@@ -98,6 +100,7 @@ async function issueTokens(authUser) {
     refreshToken: newRefreshToken,
     user: {
       userId: authUser.refId,
+      phone: authUser.phone,
       role: authUser.role,
       refModel: authUser.refModel,
       sessionVersion: authUser.sessionVersion || 0,
@@ -105,9 +108,10 @@ async function issueTokens(authUser) {
   };
 }
 
-async function refreshToken(token) {
+async function refreshToken(token, context = {}) {
   const redis = getRedisClient();
 
+  if (await redis.get(`revokedSession:${sessions.sessionId(token)}`)) throw Object.assign(new Error("نشست این دستگاه پایان یافته است."), { statusCode: 401 });
   // retrieve Auth._id from Redis
   const authId = await redis.get(`refresh:${token}`);
   if (!authId) {
@@ -123,6 +127,9 @@ async function refreshToken(token) {
   const savedVersion = Number(await redis.get(`refreshVersion:${token}`) || 0);
   if (savedVersion !== (authUser.sessionVersion || 0)) throw Object.assign(new Error("نشست پایان یافته است؛ دوباره وارد شوید."), { statusCode: 401 });
   await assertAccountReady(authUser);
+  const ttl = await redis.ttl(`refresh:${token}`);
+  if (ttl <= 0) throw Object.assign(new Error("نشست منقضی شده است."), { statusCode: 401 });
+  const sid = await sessions.registerSession(token, authUser, context, ttl);
 
   const accessToken = jwt.sign(
     {
@@ -130,6 +137,7 @@ async function refreshToken(token) {
       role: authUser.role,
       refModel: authUser.refModel,
       sessionVersion: authUser.sessionVersion || 0,
+      sid,
     },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
@@ -146,12 +154,13 @@ async function logout(refreshToken) {
     throw new Error("Session not found or already logged out.");
   }
 
+  await sessions.closeToken(refreshToken);
   await redis.del(`refresh:${refreshToken}`, `refreshVersion:${refreshToken}`);
 
   return { success: true };
 }
 
-async function devLogin(phone, code) {
+async function devLogin(phone, code, context = {}) {
   if (isLocalTestPhone(phone)) {
     if (code !== getLocalOtp(phone)) throw new Error("Invalid OTP code.");
   } else {
@@ -160,7 +169,7 @@ async function devLogin(phone, code) {
   }
   const authUser = await Auth.findOne({ phone, isActive: true });
   if (!authUser) throw new Error("Permission denied.");
-  return issueTokens(authUser);
+  return issueTokens(authUser, context);
 }
 
 module.exports = { requestOtp, verifyOtp, refreshToken, logout, devLogin };

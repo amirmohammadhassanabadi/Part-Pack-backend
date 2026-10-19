@@ -136,7 +136,7 @@ async function prepareCheckout(orderId, customerId, payload = {}) {
       ...address,
       selectedAt: new Date(),
     };
-    const discount = await getDiscount(payload.discountCode, subtotal, session);
+    const discount = await getDiscount(payload.discountCode, subtotal, session, order);
     order.checkout = {
       subtotal,
       discountCode: discount.code,

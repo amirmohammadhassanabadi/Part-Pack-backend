@@ -516,6 +516,17 @@
  *           type: string
  *         example: "665f1c8e2f8c1b001234abcd"
  *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reason, confirm]
+ *             properties:
+ *               reason: { type: string, minLength: 3, maxLength: 1000 }
+ *               confirm: { type: boolean, enum: [true] }
+ *
  *     responses:
  *       200:
  *         description: Order cancelled successfully.

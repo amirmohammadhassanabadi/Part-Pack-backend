@@ -206,8 +206,13 @@ async function assertAccountReady(account) {
   if (!Model || !account.refId || account.refModel !== Model.modelName) fail("اطلاعات حساب ناقص است؛ با ادمین برای تکمیل حساب تماس بگیرید.", 403);
   const profile = await Model.findById(account.refId).lean();
   const details = profile && identity(profile, kind);
-  if (!profile?.isActive || !String(details.name || "").trim() || !mobilePattern.test(details.phone || "")
-    || details.phone !== account.phone || details.role !== account.role) {
+  // Missing personal data is repaired after login. A valid mobile belonging to
+  // someone else, an inactive profile or a broken role/reference is not repairable by the user.
+  const selfService = ["customer", "supplier"].includes(account.role);
+  const validProfilePhone = mobilePattern.test(details?.phone || "");
+  if (!profile?.isActive || !mobilePattern.test(account.phone || "") || details.role !== account.role
+    || (validProfilePhone && details.phone !== account.phone)
+    || (!selfService && (!String(details.name || "").trim() || !validProfilePhone))) {
     fail("اطلاعات حساب ناقص یا ناهماهنگ است؛ با ادمین برای بررسی حساب تماس بگیرید.", 403);
   }
 }

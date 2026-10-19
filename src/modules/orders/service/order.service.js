@@ -585,13 +585,13 @@ async function confirmOrder(orderId, operatorId = null) {
  */
 async function cancelOrder(
   orderId,
-  { reason = null, cancelledBy = null } = {},
+  { reason = null, cancelledBy = null, actorRole = null } = {},
 ) {
   if (!isValidObjectId(orderId)) {
-    throw new Error("Invalid order ID");
+    throw Object.assign(new Error("Invalid order ID"), { statusCode: 400 });
   }
 
-  const isBundle = await Order.exists({ _id: orderId, kind: "bundle" });
+  if (actorRole && !["admin", "operator", "customer"].includes(actorRole)) throw Object.assign(new Error("اجازه لغو سفارش ندارید."), { statusCode: 403 });
 
   return withTransaction(async (session) => {
     const orderQuery = Order.findById(orderId);
@@ -599,21 +599,16 @@ async function cancelOrder(
     const order = await orderQuery;
 
     if (!order) {
-      throw new Error("Order not found");
+      throw Object.assign(new Error("Order not found"), { statusCode: 404 });
     }
 
+    if (actorRole === "customer" && String(order.customer.customerId) !== String(cancelledBy)) throw Object.assign(new Error("سفارش پیدا نشد."), { statusCode: 404 });
+    const Payment = require("../../payment/model/payment.model");
+    if (["paid", "completed"].includes(order.status) || await Payment.exists({ orderId, status: { $in: ["created", "pending", "succeeded"] } }).session(session)) throw Object.assign(new Error("سفارش دارای پرداخت فعال یا موفق قابل لغو نیست."), { statusCode: 409 });
     if (order.status === "cancelled") {
-      throw new Error("Order is already cancelled");
+      throw Object.assign(new Error("Order is already cancelled"), { statusCode: 409 });
     }
-    if (order.kind === "bundle") {
-      const Payment = require("../../payment/model/payment.model");
-      if (["paid", "completed"].includes(order.status) || await Payment.exists({ orderId, status: { $in: ["created", "pending", "succeeded"] } }).session(session)) {
-        const error = new Error("سفارش دارای پرداخت فعال یا موفق قابل لغو نیست.");
-        error.statusCode = 409;
-        throw error;
-      }
-      await require("../../bundles/service/bundleOrder.service").releaseReservation(order, session);
-    }
+    if (order.kind === "bundle") await require("../../bundles/service/bundleOrder.service").releaseReservation(order, session);
 
     const originalOrder = order.toObject();
     let invoice = null;
@@ -664,6 +659,7 @@ async function cancelOrder(
     };
 
     await order.save(session ? { session } : undefined);
+    await require("../../invitation/model/invitation.model").updateMany({ orderId: order._id }, { $set: { "lifecycle.status": "expired", "token.expiresAt": new Date() } }, { session });
 
     try {
       if (invoice?.status === "pending") {
@@ -685,7 +681,7 @@ async function cancelOrder(
     await recordEvent({
       orderId: order._id,
       type: "order_cancelled",
-      actorType: isValidObjectId(cancelledBy) ? "operator" : "system",
+      actorType: actorRole || (isValidObjectId(cancelledBy) ? "operator" : "system"),
       actorId: cancelledBy,
       invoiceId: invoice?._id || null,
       metadata: {
@@ -695,7 +691,7 @@ async function cancelOrder(
     });
 
     return order;
-  }, { required: Boolean(isBundle) });
+  }, { required: true });
 }
 
 // ============================================================

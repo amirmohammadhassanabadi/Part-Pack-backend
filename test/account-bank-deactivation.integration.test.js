@@ -31,7 +31,7 @@ test('self closure preserves records and bank data, revokes sessions, and cannot
   const redisModule = require('../src/core/database/redis');
   const originalRedis = redisModule.getRedisClient;
   const cache = new Map();
-  redisModule.getRedisClient = () => ({ get: async (key) => cache.get(key), set: async (key, value) => cache.set(key, value), del: async (...keys) => keys.forEach(key => cache.delete(key)) });
+  redisModule.getRedisClient = () => ({ get: async (key) => cache.get(key), set: async (key, value) => cache.set(key, value), ttl: async () => 3600, sadd: async () => 1, expire: async () => 1, srem: async () => 1, del: async (...keys) => keys.forEach(key => cache.delete(key)) });
   const authService = require('../src/modules/auth/service/auth.service');
   t.after(async () => { redisModule.getRedisClient = originalRedis; if (secret === undefined) delete process.env.JWT_ACCESS_SECRET; else process.env.JWT_ACCESS_SECRET = secret; await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
   await Promise.all([Customer.init(), Supplier.init(), Auth.init()]);

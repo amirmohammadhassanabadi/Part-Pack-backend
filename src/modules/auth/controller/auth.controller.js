@@ -13,7 +13,7 @@ async function requestOtp(req, res, next) {
 async function verifyOtp(req, res, next) {
   try {
     const { phone, code } = req.body;
-    const result = await authService.verifyOtp(phone, code);
+    const result = await authService.verifyOtp(phone, code, { userAgent: req.get("user-agent") });
 
     if (!result.registered) {
       return res.status(200).json({ registered: false });
@@ -39,7 +39,7 @@ async function refreshToken(req, res, next) {
         .json({ success: false, message: "No refresh token provided." });
     }
 
-    const result = await authService.refreshToken(token);
+    const result = await authService.refreshToken(token, { userAgent: req.get("user-agent") });
 
     res.status(200).json({ success: true, accessToken: result.accessToken });
   } catch (error) {
@@ -68,7 +68,7 @@ async function logout(req, res, next) {
 async function verifyDev(req, res, next) {
   try {
     const { phone, code } = req.body;
-    const result = await authService.devLogin(phone, code);
+    const result = await authService.devLogin(phone, code, { userAgent: req.get("user-agent") });
     res.status(200).json({
       refreshToken: result.refreshToken,
       accessToken: result.accessToken,

@@ -133,4 +133,6 @@ router.post(
   orderController.cancelOrder,
 );
 
+router.post("/:id/cancel", authenticate, authorize("admin", "operator", "customer"), orderController.cancelOrder);
+
 module.exports = router;

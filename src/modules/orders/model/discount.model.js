@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const discountSchema = new mongoose.Schema(
   {
+    name: { type: String, trim: true, maxlength: 150, default: "" },
+    applicableTo: { type: String, enum: ["all", "parts", "bundles"], default: "all" },
+    categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "PartCategory" }],
+    modelIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "CarModel" }],
+    brandIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Brand" }],
     code: { type: String, required: true, uppercase: true, trim: true, unique: true },
     type: { type: String, enum: ["percent", "fixed"], required: true },
     value: { type: Number, required: true, min: 0 },
