@@ -57,7 +57,6 @@ build_prod:
 #     - echo $REGISTRY_PASSWORD | docker login -u $REGISTRY_USERNAME --password-stdin
 #   script:
 #     - docker push $PUSH_REGISTRY_NAME/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
-
 # --------------------------------------------------------------
 deploy_dev:
   stage: deploy
