@@ -1,5 +1,6 @@
 stages:
   - build
+  - push
   - deploy
 
 workflow:
@@ -8,13 +9,13 @@ workflow:
     - when: never
 
 variables:
-  IMAGE_NAME: "registry.part-pack.ir/part-pack/backend"
-  IMAGE_TAG: "production"
+  PULL_REGISTRY_NAME: "registry.part-pax.com:8082" 
+  PUSH_REGISTRY_NAME: "registry.part-pax.com:8083"
+  IMAGE_NAME: "part-pax/backend"
   DEPLOYMENT_PROJECT_ID: "8"
   DEPLOYMENT_REF: "main"
   DEPLOY_SERVICE: "backend"
   GITLAB_API_URL: "https://gitlab.part-pack.ir/api/v4"
-  IMAGE_TAG_DEV: "development"
 
 build_dev:
   stage: build
@@ -23,7 +24,7 @@ build_dev:
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
   script:
-    - docker build -t "$IMAGE_NAME:$IMAGE_TAG_DEV" .
+    - docker build -t "$PUSH_REGISTRY_NAME/$IMAGE_NAME:dev" .
 
 build_prod:
   stage: build
@@ -32,8 +33,32 @@ build_prod:
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /\[production\]/'
   script:
-    - docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+    - docker build -t "$PUSH_REGISTRY_NAME/$IMAGE_NAME:production" .
 
+# --------------------------------------------------------------
+# push_dev:
+#   stage: push
+#   tags:
+#     - part-pax-backend
+#   rules:
+#     - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
+#   before_script:
+#     - echo $REGISTRY_PASSWORD | docker login $PUSH_REGISTRY_NAME -u $REGISTRY_USERNAME --password-stdin
+#   script:
+#     - docker push $PUSH_REGISTRY_NAME/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA-dev
+
+# push_prod:
+#   stage: push
+#   tags:
+#     -part-pax-backend
+#   rules:
+#     - if: '$CI_COMMIT_MESSAGE =~ /\[dev\]/'
+#   before_script:
+#     - echo $REGISTRY_PASSWORD | docker login -u $REGISTRY_USERNAME --password-stdin
+#   script:
+#     - docker push $PUSH_REGISTRY_NAME/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+
+# --------------------------------------------------------------
 deploy_dev:
   stage: deploy
   rules:
