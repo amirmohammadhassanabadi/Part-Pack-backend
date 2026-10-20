@@ -26,6 +26,12 @@
  *             - operator
  *           example: operator
  *
+ *         permissions:
+ *           type: array
+ *           description: Independent operator departments; only admins may edit. Admin has all departments.
+ *           items: { type: string, enum: [sales, supply] }
+ *           example: [sales]
+ *
  *         isActive:
  *           type: boolean
  *           example: true
@@ -58,6 +64,12 @@
  *             - operator
  *           example: operator
  *
+ *         permissions:
+ *           type: array
+ *           description: Independent operator departments; only admins may edit. Admin has all departments.
+ *           items: { type: string, enum: [sales, supply] }
+ *           example: [sales]
+ *
  *         isActive:
  *           type: boolean
  *           example: true
@@ -68,6 +80,12 @@
  *       required:
  *         - isActive
  *       properties:
+ *         permissions:
+ *           type: array
+ *           description: Independent operator departments; only admins may edit. Admin has all departments.
+ *           items: { type: string, enum: [sales, supply] }
+ *           example: [sales]
+ *
  *         isActive:
  *           type: boolean
  *           example: false

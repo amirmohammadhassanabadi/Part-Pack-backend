@@ -20,6 +20,8 @@ const staffSchema = new mongoose.Schema(
       required: true,
     },
 
+    permissions: { type: [{ type: String, enum: ["sales", "supply"] }], default: undefined },
+
     isActive: {
       type: Boolean,
       required: true,

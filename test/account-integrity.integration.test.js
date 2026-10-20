@@ -10,10 +10,14 @@ const service = require("../src/modules/accounts/service/account.service");
 const supplierService = require("../src/modules/suppliers/service/supplier.service");
 const { installAccountValidators } = require("../src/core/database/accountValidators");
 
-test("account integrity and admin repair", { skip: !process.env.SALES_TEST_MONGO_URL }, async (t) => {
+test("account integrity and admin repair", { skip: !process.env.SALES_TEST_MONGO_URL || !process.env.FEATURE_TEST_REDIS_URL }, async (t) => {
   await mongoose.connect(process.env.SALES_TEST_MONGO_URL, { dbName: `account_integrity_${crypto.randomBytes(8).toString("hex")}` });
   t.after(async () => { await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
   await Promise.all([Auth.init(), Customer.init(), Supplier.init(), Staff.init()]);
+  const redisModule = require("../src/core/database/redis"), oldRedis = redisModule.getRedisClient;
+  const redis = new (require("ioredis"))(process.env.FEATURE_TEST_REDIS_URL);
+  redisModule.getRedisClient = () => redis;
+  t.after(async () => { redisModule.getRedisClient = oldRedis; await redis.quit(); });
   let supplier, customer, staff;
 
   await t.test("rejects missing names, invalid mobile numbers and incomplete login references", async () => {
@@ -118,6 +122,7 @@ test("account integrity and admin repair", { skip: !process.env.SALES_TEST_MONGO
   });
 
   await t.test("only admin may view identity issues or repair another user's account", async (t) => {
+    const admin = await service.createAccount("staff", { fullName: "Admin", phone: "09120000888", role: "admin" });
     const express = require("express"), jwt = require("jsonwebtoken");
     const { once } = require("node:events");
     const secret = process.env.JWT_ACCESS_SECRET;
@@ -132,15 +137,18 @@ test("account integrity and admin repair", { skip: !process.env.SALES_TEST_MONGO
     t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));
     const origin = `http://127.0.0.1:${server.address().port}/users`;
     const request = async (role, path = "", body) => {
-      const userId = role === "customer" ? customer._id : role === "supplier" ? supplier._id : staff._id;
+      const userId = role === "customer" ? customer._id : role === "supplier" ? supplier._id : role === "admin" ? admin._id : staff._id;
       const current = await Auth.findOne({ refId: userId, role });
       return fetch(origin + path, { method: body ? "PATCH" : "GET", headers: { Authorization: `Bearer ${jwt.sign({ role, userId: String(userId), sessionVersion: current?.sessionVersion || 0 }, process.env.JWT_ACCESS_SECRET)}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
     };
     assert.equal((await fetch(origin)).status, 401);
-    for (const role of ["supplier", "customer", "operator"]) {
+    for (const role of ["supplier", "customer"]) {
       assert.equal((await request(role)).status, 403);
       assert.equal((await request(role, `/supplier/${supplier._id}`, { fullName: "Injected", phone: "09120000008" })).status, 403);
     }
+    const operatorRows = await request("operator");
+    assert.equal(operatorRows.status, 200); assert((await operatorRows.json()).every(row => row.role === "customer"));
+    assert.equal((await request("operator", `/supplier/${supplier._id}`, { fullName: "Injected" })).status, 403);
     assert.equal((await request("admin")).status, 200);
     assert.equal((await request("admin", `/supplier/${supplier._id}`, { fullName: "Admin verified name", phone: supplier.contacts.mobile })).status, 200);
     assert.equal((await Supplier.findById(supplier._id)).name, "Admin verified name");

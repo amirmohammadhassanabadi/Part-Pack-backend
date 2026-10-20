@@ -3,8 +3,8 @@ const authService = require("../service/auth.service");
 async function requestOtp(req, res, next) {
   try {
     const { phone, otpWay } = req.body;
-    await authService.requestOtp(phone, otpWay);
-    res.status(200).json({ success: true });
+    const result = await authService.requestOtp(phone, otpWay);
+    res.set("Cache-Control", "no-store").status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -16,7 +16,7 @@ async function verifyOtp(req, res, next) {
     const result = await authService.verifyOtp(phone, code, { userAgent: req.get("user-agent") });
 
     if (!result.registered) {
-      return res.status(200).json({ registered: false });
+      return res.status(200).json({ registered: false, registrationToken: result.registrationToken });
     }
 
     res.status(200).json({
@@ -63,20 +63,4 @@ async function logout(req, res, next) {
     next(error);
   }
 }
-// -----------------------------------
-// Dev
-async function verifyDev(req, res, next) {
-  try {
-    const { phone, code } = req.body;
-    const result = await authService.devLogin(phone, code, { userAgent: req.get("user-agent") });
-    res.status(200).json({
-      refreshToken: result.refreshToken,
-      accessToken: result.accessToken,
-      user: result.user,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-module.exports = { requestOtp, verifyOtp, refreshToken, logout, verifyDev };
+module.exports = { requestOtp, verifyOtp, refreshToken, logout };

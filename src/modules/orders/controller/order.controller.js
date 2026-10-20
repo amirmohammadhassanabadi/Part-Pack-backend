@@ -100,7 +100,13 @@ async function prepareCheckout(req, res, next) {
 
 async function getOperatorOrders(req, res, next) {
   try {
-    const { status, phase, search, from, to, page, limit } = req.query;
+    const { status, search, from, to, page, limit } = req.query;
+    let phase = req.query.phase;
+    if (req.user.role === "operator" && req.user.permissions.length === 1) {
+      const permittedPhase = req.user.permissions[0];
+      if (phase && phase !== permittedPhase) return res.status(403).json({ success: false, message: "به این بخش سفارش‌ها دسترسی ندارید." });
+      phase = permittedPhase;
+    }
 
     const result = await orderService.getOperatorOrders({
       status, phase, search, from, to,

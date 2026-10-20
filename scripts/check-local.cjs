@@ -17,8 +17,9 @@ async function json(url, body, cookie) {
   const redis = new Redis(process.env.REDIS_URL);
   try {
     for (const [phone, role] of [["09128498876", "admin"], ["09128498877", "customer"], ["09128498878", "supplier"]]) {
-      if (role !== "admin") await json(`${base}/auth/request-otp`, { phone, otpWay: "sms" });
-      const result = await json(`${base}/auth/${role === "admin" ? "devlogin" : "verify-otp"}`, { phone, code: "112233" });
+      const challenge = await json(`${base}/auth/request-otp`, { phone, otpWay: "sms" });
+      assert.ok(challenge.data.otpPreview, "Enable OTP display in admin login settings before running the local check");
+      const result = await json(`${base}/auth/verify-otp`, { phone, code: challenge.data.otpPreview });
       assert.equal(result.data.user.role, role);
       const cookies = result.response.headers.getSetCookie();
       assert.ok(cookies.every((value) => Buffer.byteLength(value) < 4096), "Cookie exceeds browser limits");
@@ -36,10 +37,7 @@ async function json(url, body, cookie) {
       assert.ok(response.response.headers.getSetCookie().some((value) => value.startsWith("access_token=")));
       await json(`${base}/auth/logout`, {}, cookie);
       assert.equal(await redis.get(`refresh:${refresh}`), null);
-      console.log(`${role}: fixed OTP, real JWT, HttpOnly cookies, Redis refresh and logout passed`);
+      console.log(`${role}: random OTP, real JWT, HttpOnly cookies, Redis refresh and logout passed`);
     }
-    const denied = await fetch(`${base}/auth/request-otp`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: "09120009999", otpWay: "sms" }) });
-    assert.equal(denied.status, 400);
-    console.log("Unknown local phone rejected without sending SMS");
   } finally { await redis.quit(); }
 })().catch((error) => { console.error(error.message, error.cause?.code || ""); process.exitCode = 1; });

@@ -1,4 +1,3 @@
-const { isLocalAuthEnabled } = require("../../auth/service/localAuth");
 
 function buildSupplierInvitationUrl(token) {
   const baseUrl =
@@ -14,9 +13,6 @@ async function sendSupplierInvitation({
   expiresAt,
 }) {
   const url = buildSupplierInvitationUrl(token);
-  if (isLocalAuthEnabled()) {
-    console.log(`[local invitation] ${supplierId}: ${url}`);
-  }
 
   return {
     provider: "noop",

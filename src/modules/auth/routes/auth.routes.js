@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+router.use((req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 const authController = require("../controller/auth.controller");
 const { otpRateLimiter } = require("../../../core/middlewares/rateLimiter");
 const {
@@ -20,10 +21,16 @@ router.post(
   validateBody(validateOtpVerification),
   authController.verifyOtp,
 );
+router.post("/register", otpRateLimiter, async (req, res, next) => {
+  try {
+    const result = await require("../service/auth.service").registerAccount(req.get("x-registration-token"), req.body.role, req.body, { userAgent: req.get("user-agent") });
+    res.set("Cache-Control", "no-store").status(201).json(result);
+  } catch (error) { next(error); }
+});
 router.post("/refresh", authController.refreshToken);
 router.post("/logout", authController.logout);
 // --------------------------------------------
-router.post("/devlogin", authController.verifyDev);
+
 
 const { authenticate } = require("../middleware/auth.middleware");
 const Auth = require("../model/auth.model");

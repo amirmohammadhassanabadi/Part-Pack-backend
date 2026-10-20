@@ -40,6 +40,8 @@ test("bundle commerce on an isolated replica set", { skip: !process.env.BUNDLE_T
   const supplierAccount = await accountService.createAccount("supplier", { name: "Test supplier", contacts: { mobile: "09120000002" } });
   const customer = await accountService.createAccount("customer", { nationalCode: "1234567891", fullName: "Bundle customer", phone: "09120000000" });
   const other = await accountService.createAccount("customer", { nationalCode: "1234567891", fullName: "Other customer", phone: "09120000001" });
+  const admin = await accountService.createAccount("staff", { fullName: "Admin", phone: "09120000888", role: "admin" });
+  const operator = await accountService.createAccount("staff", { fullName: "Operator", phone: "09120000889", role: "operator" });
   const customerId = String(customer._id);
   const create = (bundle, qty = 1, extra = {}) => orderService.createOrder(customerId, [{ type: "bundle", bundleId: String(bundle._id), qty, ...extra }]);
   const address = { title: "Home", province: "Tehran", city: "Tehran", line: "Test address" };
@@ -53,7 +55,7 @@ test("bundle commerce on an isolated replica set", { skip: !process.env.BUNDLE_T
     try {
       const base = `http://127.0.0.1:${server.address().port}/api/v1`;
       const request = async (path, role, options = {}) => {
-        const response = await fetch(`${base}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(role ? { Authorization: `Bearer ${jwt.sign({ role, userId: role === "customer" ? customerId : role === "supplier" ? String(supplierAccount._id) : String(new mongoose.Types.ObjectId()) }, process.env.JWT_ACCESS_SECRET)}` } : {}) } });
+        const response = await fetch(`${base}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(role ? { Authorization: `Bearer ${jwt.sign({ role, userId: role === "customer" ? customerId : role === "supplier" ? String(supplierAccount._id) : String(role === "admin" ? admin._id : operator._id) }, process.env.JWT_ACCESS_SECRET)}` } : {}) } });
         return { status: response.status, body: await response.json() };
       };
       assert.equal((await request("/bundles/admin")).status, 401);

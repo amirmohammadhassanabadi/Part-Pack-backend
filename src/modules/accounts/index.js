@@ -30,13 +30,14 @@ router.delete("/me", authenticate, authorize("customer", "supplier"), async (req
     res.json(await service.deactivateOwnAccount(req.user.role, req.user.userId));
   } catch (error) { next(error); }
 });
-router.use(authenticate, authorize("admin"));
+router.use(authenticate, authorize("admin", "operator"));
 router.get("/", async (req, res, next) => {
-  try { res.json(await service.listAccounts()); } catch (error) { next(error); }
+  try { res.json(await service.listAccounts(req.user.role === "admin" ? undefined : [ ...(req.user.permissions.includes("sales") ? ["customer"] : []), ...(req.user.permissions.includes("supply") ? ["supplier"] : []) ])); } catch (error) { next(error); }
 });
 router.patch("/:kind/:id", async (req, res, next) => {
   try {
     const { kind, id } = req.params;
+    if (req.user.role !== "admin" && !((kind === "customer" && req.user.permissions.includes("sales")) || (kind === "supplier" && req.user.permissions.includes("supply")))) return res.status(403).json({ message: "دسترسی ندارید." });
     const data = { ...req.body };
     if (kind === "supplier" && Object.hasOwn(data, "fullName")) data.name = data.fullName;
     const profile = kind === "orphan" ? await service.repairOrphan(id, data)

@@ -42,6 +42,7 @@ app.get("/healthz", (req, res) => {
 
 // Routers
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/settings", require("./modules/settings"));
 app.use("/api/v1/staff", staffRouter);
 app.use("/api/v1/users", require("./modules/accounts"));
 app.use("/api/v1/suppliers", supplierRouter);

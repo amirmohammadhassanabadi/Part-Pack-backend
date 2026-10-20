@@ -74,4 +74,35 @@ async function closeToken(token) {
   await redis.del(`authSession:${id}`);
   if (data) await redis.srem(ownerKey(data.authId), id);
 }
-module.exports = { sessionId, registerSession, assertSession, listSessions, revokeSession, closeToken };
+async function revokeAllSessions(authId) {
+  const redis = getRedisClient(), owner = String(authId);
+  const tokens = new Set();
+  for (const id of await redis.smembers(ownerKey(owner))) {
+    const data = JSON.parse(await redis.get(`authSession:${id}`) || "null");
+    if (data?.authId === owner) tokens.add(data.token);
+  }
+  let cursor = "0";
+  do {
+    const result = await redis.scan(cursor, "MATCH", "refresh:*", "COUNT", 100);
+    cursor = result[0];
+    for (const key of result[1]) if (await redis.get(key) === owner) tokens.add(key.slice(8));
+  } while (cursor !== "0");
+  for (const token of tokens) {
+    await closeToken(token);
+    await redis.del(`refresh:${token}`, `refreshVersion:${token}`);
+  }
+  cursor = "0";
+  do {
+    const result = await redis.scan(cursor, "MATCH", "authSession:*", "COUNT", 100);
+    cursor = result[0];
+    for (const key of result[1]) {
+      const data = JSON.parse(await redis.get(key) || "null");
+      if (data?.authId === owner) {
+        await closeToken(data.token);
+        await redis.del(`refresh:${data.token}`, `refreshVersion:${data.token}`);
+      }
+    }
+  } while (cursor !== "0");
+  await redis.del(ownerKey(owner), `sessionsImported:${owner}`);
+}
+module.exports = { revokeAllSessions, sessionId, registerSession, assertSession, listSessions, revokeSession, closeToken };

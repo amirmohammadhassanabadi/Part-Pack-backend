@@ -20,6 +20,7 @@ test("profile completion, admin editing and self-service persist on an isolated 
   await Promise.all([Customer.init(), Supplier.init(), Auth.init()]);
   const customer = await service.createAccount("customer", { fullName: "Customer", phone: "09120000001", addresses: [{ title: "Home", province: "Tehran", city: "Tehran", line: "Old address" }] });
   const supplier = await service.createAccount("supplier", { name: "Supplier", contacts: { mobile: "09120000002" } });
+  const admin = await service.createAccount("staff", { fullName: "Admin", phone: "09120000888", role: "admin" });
   const express = require("express");
   const app = express(); app.use(express.json());
   app.use("/users", require("../src/modules/accounts"));
@@ -42,7 +43,7 @@ test("profile completion, admin editing and self-service persist on an isolated 
       const rejected = await request("/orders", "customer", customer._id, "POST", { items: [item] });
       assert.equal(rejected.status, 403); assert.equal(rejected.body.code, "PROFILE_INCOMPLETE");
     }
-    assert.equal((await request("/users/me/profile", "admin", customer._id)).status, 403);
+    assert.equal((await request("/users/me/profile", "admin", admin._id)).status, 403);
   });
   await t.test("invalid codes fail without damaging the saved profile; valid completion survives reloading", async () => {
     const invalid = await request("/users/me/profile", "customer", customer._id, "PATCH", { nationalCode: "0000000000", fullName: "Should not persist" });
@@ -69,14 +70,14 @@ test("profile completion, admin editing and self-service persist on an isolated 
     assert.equal(updated.status, 200);
     assert.equal(updated.body.completion.complete, true);
     await requireCompleteProfile("supplier", supplier._id);
-    const byAdmin = await request(`/users/supplier/${supplier._id}`, "admin", new mongoose.Types.ObjectId(), "PATCH", {
+    const byAdmin = await request(`/users/supplier/${supplier._id}`, "admin", admin._id, "PATCH", {
       fullName: "Admin edited", personType: "individual", nationalCode: "1234567891", accessibility: { visualImpairment: false },
     });
     assert.equal(byAdmin.status, 200);
     const saved = await Supplier.findById(supplier._id);
     assert.equal(saved.name, "Admin edited"); assert.equal(saved.accessibility.visualImpairment, false);
     assert.equal(saved.contacts.mobile, supplier.contacts.mobile);
-    const rows = (await request("/users", "admin", new mongoose.Types.ObjectId())).body;
+    const rows = (await request("/users", "admin", admin._id)).body;
     assert.ok(rows.every((row) => row.integrity.complete));
     assert.equal((await request(`/users/supplier/${supplier._id}`, "customer", customer._id, "PATCH", { nationalCode: "1234567891" })).status, 403);
   });

@@ -19,11 +19,16 @@ async function authenticate(req, res, next) {
     // Pre-tracking tokens must refresh once so each browser gets a revocable session ID.
     if (decoded.refModel && !decoded.sid) return res.status(401).json({ success: false, message: "نشست باید تمدید شود." });
     if (decoded.sid) await require("../service/session.service").assertSession(decoded.sid, decoded);
-    if (decoded.sid || ["customer", "supplier"].includes(decoded.role)) {
+    {
       const account = await Auth.findOne({ refId: decoded.userId, role: decoded.role }).select("isActive sessionVersion").lean();
       if (!account || !account.isActive || (account.sessionVersion || 0) !== (decoded.sessionVersion || 0)) {
         return res.status(401).json({ success: false, code: "ACCOUNT_DISABLED", message: "حساب غیرفعال شده یا نشست آن پایان یافته است." });
       }
+    }
+    if (["admin", "operator"].includes(decoded.role)) {
+      const staff = await require("../../staff/model/staff.model").findById(decoded.userId).lean();
+      if (!staff?.isActive || staff.role !== decoded.role) return res.status(401).json({ success: false, message: "نشست پرسنل پایان یافته است." });
+      decoded.permissions = require("../../staff/permissions").staffPermissions(staff);
     }
     req.user = decoded;
 
@@ -40,7 +45,7 @@ async function authenticate(req, res, next) {
 
 function authorize(...roles) {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(req.user.role) || (req.user.role === "operator" && !require("../../staff/permissions").operatorCanAccess(req))) {
       return res.status(403).json({
         success: false,
         message: "Access denied.",

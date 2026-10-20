@@ -102,24 +102,24 @@
  *       200: { description: Logged out successfully }
  *       401: { description: Refresh token missing or invalid }
  *
- * /auth/devlogin:
+ * /auth/register:
  *   post:
  *     tags: [Auth]
- *     summary: Development-only login
- *     description: Available only for local/development authentication flows.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [phone, code]
- *             properties: { phone: { type: string }, code: { type: string } }
+ *     summary: Register a customer or supplier after OTP verification
+ *     description: Requires the short-lived x-registration-token returned by verify-otp for a new phone. Phone is derived from that ticket; staff roles cannot self-register.
  *     responses:
- *       200:
- *         description: Development access token
- *         content:
- *           application/json:
- *             schema: { type: object, properties: { accessToken: { type: string }, user: { $ref: '#/components/schemas/AuthUser' } } }
- *       401: { description: Invalid development credentials }
+ *       201: { description: Account created with access and refresh tokens }
+ *       401: { description: Invalid or expired phone verification }
+ *
+ * /settings/authentication:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Read OTP display mode (admin only)
+ *     responses:
+ *       200: { description: OTP preview mode and revision; defaults to enabled until an admin saves a preference }
+ *   patch:
+ *     tags: [Auth]
+ *     summary: Enable OTP preview or restore normal SMS delivery (admin only)
+ *     responses:
+ *       200: { description: Setting persisted; prior preview codes invalidated }
  */

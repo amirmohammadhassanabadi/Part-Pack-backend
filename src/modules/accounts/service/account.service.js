@@ -35,6 +35,7 @@ async function ensurePhoneAvailable(phone, kind, profileId, authId, session) {
 // Both documents commit together; a failed login-account write cannot leave a profile behind.
 async function createAccount(kind, data) {
   const Model = models[kind];
+  if (kind === "staff" && data.role === "operator" && !Object.hasOwn(data, "permissions")) data = { ...data, permissions: ["sales"] };
   const profile = new Model({ ...data, ...(kind === "staff" ? {} : pickProfileFields(data, kind)) });
   await profile.validate();
   return withTransaction(async (session) => {
@@ -49,7 +50,8 @@ async function createAccount(kind, data) {
 async function updateAccount(kind, id, data, { repair = false } = {}) {
   const Model = models[kind];
   if (!Model || !mongoose.isValidObjectId(id)) fail("شناسه یا نوع کاربر نامعتبر است.", 400);
-  return withTransaction(async (session) => {
+  let changedRole = false;
+  const result = await withTransaction(async (session) => {
     const profile = await Model.findById(id).session(session);
     if (!profile) fail("کاربر پیدا نشد.", 404);
     const accounts = await Auth.find({ refId: profile._id }).session(session);
@@ -58,7 +60,7 @@ async function updateAccount(kind, id, data, { repair = false } = {}) {
     if (account && (!kinds[account.role] || kinds[account.role] !== kind)) {
       fail("نقش حساب ورود با این پروفایل تعارض دارد؛ ارتباط حساب باید بررسی شود.", 409);
     }
-    const extra = kind === "staff" ? {} : pickProfileFields(data, kind);
+    const extra = kind === "staff" ? (Object.hasOwn(data, "permissions") ? { permissions: require("../../staff/permissions").validatePermissions(data.permissions) } : {}) : pickProfileFields(data, kind);
     for (const [field, value] of Object.entries(extra)) {
       if (["accessibility", "bankDetails"].includes(field)) {
         for (const [option, enabled] of Object.entries(value)) profile.set(`${field}.${option}`, enabled);
@@ -90,6 +92,9 @@ async function updateAccount(kind, id, data, { repair = false } = {}) {
     for (const field of Object.keys(extra)) updates[field] = profile.get(field);
     if (kind !== "staff" && Object.hasOwn(data, "isActive")) updates.deactivatedAt = profile.isActive ? null : profile.deactivatedAt || new Date();
     if (kind === "staff") updates.role = profile.role;
+    if (kind === "staff" && account?.role === "admin" && (!profile.isActive || profile.role !== "admin")) {
+      if (!await Staff.exists({ _id: { $ne: profile._id }, role: "admin", isActive: true }).session(session)) fail("آخرین ادمین فعال را نمی‌توان غیرفعال کرد یا نقش او را تغییر داد.", 409);
+    }
     if (kind === "supplier") {
       for (const field of ["address", "contacts.landLine", "contacts.telegram"]) {
         if (profile.get(field) !== undefined) updates[field] = profile.get(field);
@@ -98,17 +103,23 @@ async function updateAccount(kind, id, data, { repair = false } = {}) {
     await Model.updateOne({ _id: id }, { $set: updates }, { session, runValidators: true });
     const auth = account || new Auth();
     const wasActive = account?.isActive !== false;
+    const previousRole = account?.role;
+    changedRole = Boolean(account && previousRole !== role);
     Object.assign(auth, { phone, role, refModel: Model.modelName, refId: profile._id, isActive: profile.isActive });
-    if (account && wasActive && profile.isActive === false) auth.sessionVersion = (auth.sessionVersion || 0) + 1;
+    if (account && ((wasActive && profile.isActive === false) || previousRole !== role)) auth.sessionVersion = (auth.sessionVersion || 0) + 1;
     await auth.save({ session });
     return Model.findById(id).session(session);
   }, { required: true });
+  if (result.isActive === false || changedRole) {
+    for (const account of await Auth.find({ refId: id }).select("_id").lean()) await require("../../auth/service/session.service").revokeAllSessions(account._id);
+  }
+  return result;
 }
 
 // Do not validate or rewrite unrelated legacy fields when the owner closes an account.
 async function deactivateOwnAccount(kind, id) {
   if (!["customer", "supplier"].includes(kind) || !mongoose.isValidObjectId(id)) fail("حساب نامعتبر است.", 400);
-  return withTransaction(async (session) => {
+  const result = await withTransaction(async (session) => {
     const profile = await models[kind].findById(id).session(session);
     if (!profile) fail("حساب پیدا نشد.", 404);
     const deactivatedAt = profile.deactivatedAt || new Date();
@@ -117,12 +128,17 @@ async function deactivateOwnAccount(kind, id) {
     await Auth.updateMany({ refId: profile._id, role: kind }, { $set: { isActive: false }, $inc: { sessionVersion: 1 } }, { session });
     return { success: true, deactivatedAt };
   }, { required: true });
+  for (const account of await Auth.find({ refId: id, role: kind }).select("_id").lean()) await require("../../auth/service/session.service").revokeAllSessions(account._id);
+  return result;
 }
 
 // Read raw persisted fields: fallback display values must not hide incomplete records.
-async function listAccounts() {
+async function listAccounts(allowedKinds = ["customer", "supplier", "staff"]) {
   const [customers, suppliers, staff, accounts] = await Promise.all([
-    Customer.find().select("-orders -invoices").lean(), Supplier.find().lean(), Staff.find().lean(), Auth.find().lean(),
+    allowedKinds.includes("customer") ? Customer.find().select("-orders -invoices").lean() : [],
+    allowedKinds.includes("supplier") ? Supplier.find().lean() : [],
+    allowedKinds.includes("staff") ? Staff.find().lean() : [],
+    Auth.find({ role: { $in: allowedKinds.flatMap(kind => kind === "staff" ? ["admin", "operator"] : [kind]) } }).lean(),
   ]);
   const profiles = [
     ...customers.map((profile) => ({ profile, kind: "customer" })),

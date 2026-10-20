@@ -24,14 +24,15 @@ test('bank fields normalize digits, reject invalid check digits and whitelist st
   await assert.rejects(invalid.validate(), /bankDetails/);
 });
 
-test('self closure preserves records and bank data, revokes sessions, and cannot target another user', { skip: !process.env.PROFILE_TEST_MONGO_URL }, async (t) => {
+test('self closure preserves records and bank data, revokes sessions, and cannot target another user', { skip: !process.env.PROFILE_TEST_MONGO_URL || !process.env.FEATURE_TEST_REDIS_URL }, async (t) => {
   await mongoose.connect(process.env.PROFILE_TEST_MONGO_URL, { dbName: `account_closure_${crypto.randomBytes(8).toString('hex')}` });
   const secret = process.env.JWT_ACCESS_SECRET;
   process.env.JWT_ACCESS_SECRET = crypto.randomBytes(32).toString('hex');
   const redisModule = require('../src/core/database/redis');
   const originalRedis = redisModule.getRedisClient;
-  const cache = new Map();
-  redisModule.getRedisClient = () => ({ get: async (key) => cache.get(key), set: async (key, value) => cache.set(key, value), ttl: async () => 3600, sadd: async () => 1, expire: async () => 1, srem: async () => 1, del: async (...keys) => keys.forEach(key => cache.delete(key)) });
+  const redis = new (require("ioredis"))(process.env.FEATURE_TEST_REDIS_URL);
+  redisModule.getRedisClient = () => redis;
+  t.after(() => redis.quit());
   const authService = require('../src/modules/auth/service/auth.service');
   t.after(async () => { redisModule.getRedisClient = originalRedis; if (secret === undefined) delete process.env.JWT_ACCESS_SECRET; else process.env.JWT_ACCESS_SECRET = secret; await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
   await Promise.all([Customer.init(), Supplier.init(), Auth.init()]);
@@ -58,8 +59,9 @@ test('self closure preserves records and bank data, revokes sessions, and cannot
   } finally { Auth.updateMany = updateMany; }
   const old = token('customer', customer._id);
   const auth = await Auth.findOne({ refId: customer._id });
-  cache.set('refresh:old', String(auth._id)); // A legacy refresh without a version is also revoked.
-  assert((await authService.refreshToken('old')).accessToken);
+  const legacyToken = crypto.randomBytes(32).toString('hex');
+  await redis.set(`refresh:${legacyToken}`, String(auth._id), 'EX', 3600); // A legacy refresh without a version is also revoked.
+  assert((await authService.refreshToken(legacyToken)).accessToken);
   assert.equal((await request(old, '/users/me', 'DELETE', {})).status, 400);
   assert.equal((await Customer.findById(customer._id)).isActive, true);
   const update = await request(old, '/users/me/profile', 'PATCH', { bankDetails: { accountHolder: 'Changed' } });
@@ -79,12 +81,12 @@ test('self closure preserves records and bank data, revokes sessions, and cannot
   assert.equal((await Supplier.findById(supplier._id)).isActive, true);
   assert.equal((await Auth.findById(auth._id)).isActive, false);
   assert.equal((await request(old)).status, 401);
-  await assert.rejects(authService.refreshToken('old'), { statusCode: 401 });
-  cache.set(`otp:${customer.phone}`, '123456');
+  await assert.rejects(authService.refreshToken(legacyToken), { statusCode: 401 });
+  await redis.set(`otp:${customer.phone}`, '123456');
   await assert.rejects(authService.verifyOtp(customer.phone, '123456'), { statusCode: 403 });
   await service.updateAccount('customer', customer._id, { isActive: true });
   assert.equal((await request(old)).status, 401);
-  await assert.rejects(authService.refreshToken('old'), { statusCode: 401 });
+  await assert.rejects(authService.refreshToken(legacyToken), { statusCode: 401 });
   const version = (await Auth.findById(auth._id)).sessionVersion;
   assert.equal((await request(token('customer', customer._id, version))).status, 200);
   const supplierToken = token('supplier', supplier._id);
@@ -92,7 +94,8 @@ test('self closure preserves records and bank data, revokes sessions, and cannot
   assert.equal((await request(supplierToken, '/users/me', 'DELETE', { confirm: true })).status, 200);
   assert.equal((await request(supplierToken)).status, 401);
   assert.equal((await Supplier.findById(supplier._id)).bankDetails.cardNumber, card);
-  const admin = token('admin', new mongoose.Types.ObjectId());
+  const adminProfile = await service.createAccount('staff', { fullName: 'Admin', phone: '09120000888', role: 'admin' });
+  const admin = token('admin', adminProfile._id);
   const rows = await request(admin, '/users');
-  assert.equal(rows.status, 200); assert.equal(rows.body.length, 2); 
+  assert.equal(rows.status, 200); assert.equal(rows.body.length, 3);
 });

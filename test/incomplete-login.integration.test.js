@@ -8,18 +8,15 @@ const Supplier = require("../src/modules/suppliers/model/supplier.model");
 const Auth = require("../src/modules/auth/model/auth.model");
 const accounts = require("../src/modules/accounts/service/account.service");
 
-test("incomplete customers and suppliers log in, complete their own profile and retain order restrictions until then", { skip: !process.env.PROFILE_TEST_MONGO_URL }, async (t) => {
+test("incomplete customers and suppliers log in, complete their own profile and retain order restrictions until then", { skip: !process.env.PROFILE_TEST_MONGO_URL || !process.env.FEATURE_TEST_REDIS_URL }, async (t) => {
   await mongoose.connect(process.env.PROFILE_TEST_MONGO_URL, { dbName: `incomplete_login_${crypto.randomBytes(8).toString("hex")}` });
   const oldSecret = process.env.JWT_ACCESS_SECRET;
   process.env.JWT_ACCESS_SECRET = crypto.randomBytes(32).toString("hex");
   const redisModule = require("../src/core/database/redis");
   const originalRedis = redisModule.getRedisClient;
-  const cache = new Map();
-  redisModule.getRedisClient = () => ({
-    get: async (key) => cache.get(key), set: async (key, value) => cache.set(key, value),
-    del: async (...keys) => keys.forEach(key => cache.delete(key)), ttl: async () => 3600,
-    sadd: async () => 1, expire: async () => 1,
-  });
+  const redis = new (require("ioredis"))(process.env.FEATURE_TEST_REDIS_URL);
+  redisModule.getRedisClient = () => redis;
+  t.after(() => redis.quit());
   t.after(async () => {
     redisModule.getRedisClient = originalRedis;
     if (oldSecret === undefined) delete process.env.JWT_ACCESS_SECRET; else process.env.JWT_ACCESS_SECRET = oldSecret;
@@ -43,7 +40,7 @@ test("incomplete customers and suppliers log in, complete their own profile and 
     return { status: response.status, body: await response.json() };
   };
   const login = async (phone) => {
-    cache.set(`otp:${phone}`, "123456");
+    await redis.set(`otp:${phone}`, "123456");
     return request("/auth/verify-otp", "POST", { phone, code: "123456" });
   };
   for (const [kind, Model, phone] of [["customer", Customer, "09120000071"], ["supplier", Supplier, "09120000072"]]) {

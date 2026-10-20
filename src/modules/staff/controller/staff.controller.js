@@ -40,6 +40,7 @@ function sanitizeUpdateBody(body) {
     payload.isActive = body.isActive;
   }
 
+  if (Object.hasOwn(body, "permissions")) payload.permissions = require("../permissions").validatePermissions(body.permissions);
   return payload;
 }
 
@@ -84,7 +85,7 @@ async function getStaffById(req, res, next) {
     }
 
     const staff = await staffService.getStaffById(req.params.id);
-    res.status(200).json(staff);
+    res.status(200).json({ ...staff.toObject(), permissions: require("../permissions").staffPermissions(staff) });
   } catch (error) {
     next(error);
   }
@@ -107,7 +108,7 @@ async function updateStaff(req, res, next) {
     }
 
     const staff = await staffService.updateStaff(req.params.id, payload);
-    res.status(200).json(staff);
+    res.status(200).json({ ...staff.toObject(), permissions: require("../permissions").staffPermissions(staff) });
   } catch (error) {
     next(error);
   }

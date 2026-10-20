@@ -6,7 +6,7 @@ const { assertAccountReady } = require("../../accounts/service/account.service")
 const { getRedisClient } = require("../../../core/database/redis");
 const kavenegarService = require("../../../integrations/kavenegar/kavenegarService");
 
-const { getLocalOtp, isLocalAuthEnabled, isLocalTestPhone } = require("./localAuth");
+const { getAuthSettings } = require("../../settings");
 
 const OTP_TTL = 120;
 const OTP_MAX_ATTEMPTS = 5;
@@ -15,53 +15,49 @@ const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60;
 
 async function requestOtp(phone, otpWay) {
   const redis = getRedisClient();
-  if (isLocalAuthEnabled() && !isLocalTestPhone(phone)) {
-    const error = new Error("Only seeded test accounts are allowed in local mode; no SMS is sent.");
-    error.statusCode = 400;
-    throw error;
+  const settings = await getAuthSettings();
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  if (!await redis.set(`otp:${phone}`, otp, "EX", OTP_TTL, "NX")) {
+    throw Object.assign(new Error("کد قبلاً ارسال شده؛ دو دقیقه صبر کنید."), { statusCode: 429 });
   }
-
-  const existingOtp = await redis.get(`otp:${phone}`);
-  if (existingOtp) {
-    throw new Error(
-      "OTP already sent. Please wait 2 minutes before requesting again.",
-    );
-  }
-
-  const localOtp = getLocalOtp(phone);
-  const otp = localOtp || crypto.randomInt(100000, 999999).toString();
-
-  await redis.set(`otp:${phone}`, otp, "EX", OTP_TTL);
   await redis.set(`otp_attempts:${phone}`, "0", "EX", OTP_TTL);
-
-  if (!localOtp) await kavenegarService.sendOtp(phone, otp, otpWay);
-
-  return { success: true };
+  await redis.set(`otp_delivery:${phone}`, settings.otpPreviewEnabled ? `preview:${settings.revision}` : "sms", "EX", OTP_TTL);
+  try {
+    if (!settings.otpPreviewEnabled) await kavenegarService.sendOtp(phone, otp, otpWay);
+  } catch (error) {
+    await redis.del(`otp:${phone}`, `otp_attempts:${phone}`, `otp_delivery:${phone}`);
+    throw Object.assign(new Error("ارسال پیامک ناموفق بود؛ دوباره تلاش کنید."), { statusCode: 503 });
+  }
+  return { success: true, expiresIn: OTP_TTL, ...(settings.otpPreviewEnabled ? { otpPreview: otp } : {}) };
 }
 
 async function verifyOtp(phone, code, context = {}) {
   const redis = getRedisClient();
 
-  const storedOtp = await redis.get(`otp:${phone}`);
-  if (!storedOtp) {
-    throw new Error("OTP expired or not requested.");
+  const delivery = await redis.get(`otp_delivery:${phone}`);
+  if (delivery?.startsWith("preview:")) {
+    const settings = await getAuthSettings();
+    if (!settings.otpPreviewEnabled || delivery !== `preview:${settings.revision}`) {
+      await redis.del(`otp:${phone}`, `otp_attempts:${phone}`, `otp_delivery:${phone}`);
+      throw Object.assign(new Error("کد منقضی شده؛ کد جدید درخواست کنید."), { statusCode: 400 });
+    }
   }
-
-  const attempts = parseInt(await redis.get(`otp_attempts:${phone}`)) || 0;
-  if (attempts >= OTP_MAX_ATTEMPTS) {
-    throw new Error("Too many failed attempts. Please request a new OTP.");
-  }
-
-  if (storedOtp !== code) {
-    await redis.incr(`otp_attempts:${phone}`);
-    throw new Error("Invalid OTP code.");
-  }
-
-  await redis.del(`otp:${phone}`);
-  await redis.del(`otp_attempts:${phone}`);
+  const verdict = await redis.eval(`
+    local saved = redis.call('GET', KEYS[1])
+    if not saved then return -1 end
+    local attempts = tonumber(redis.call('GET', KEYS[2]) or '0')
+    if attempts >= tonumber(ARGV[2]) then return -2 end
+    if saved ~= ARGV[1] then redis.call('INCR', KEYS[2]); return 0 end
+    redis.call('DEL', KEYS[1], KEYS[2], KEYS[3]); return 1
+  `, 3, `otp:${phone}`, `otp_attempts:${phone}`, `otp_delivery:${phone}`, code, OTP_MAX_ATTEMPTS);
+  if (verdict !== 1) throw Object.assign(new Error(verdict === -1 ? "OTP expired or not requested." : verdict === -2 ? "Too many failed attempts. Please request a new OTP." : "Invalid OTP code."), { statusCode: 400 });
 
   const authUser = await Auth.findOne({ phone });
-  if (!authUser) return { registered: false };
+  if (!authUser) {
+    const registrationToken = crypto.randomBytes(32).toString("hex");
+    await redis.set(`registration:${registrationToken}`, phone, "EX", 600);
+    return { registered: false, registrationToken };
+  }
   if (!authUser.isActive) throw Object.assign(new Error("این حساب غیرفعال شده است؛ برای بررسی با پشتیبانی تماس بگیرید."), { statusCode: 403 });
 
   return issueTokens(authUser, context);
@@ -94,6 +90,8 @@ async function issueTokens(authUser, context = {}) {
 
   await redis.set(`refreshVersion:${newRefreshToken}`, String(authUser.sessionVersion || 0), "EX", REFRESH_TOKEN_TTL);
 
+  // A deactivation racing token issuance must not leave newly written refresh keys behind.
+  await ensureStillActive(authUser, newRefreshToken);
   return {
     registered: true,
     accessToken,
@@ -115,7 +113,7 @@ async function refreshToken(token, context = {}) {
   // retrieve Auth._id from Redis
   const authId = await redis.get(`refresh:${token}`);
   if (!authId) {
-    throw new Error("Session expired. Please login again.");
+    throw Object.assign(new Error("Session expired. Please login again."), { statusCode: 401 });
   }
 
   // lookup Auth document by its own _id
@@ -143,9 +141,18 @@ async function refreshToken(token, context = {}) {
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
 
+  await ensureStillActive(authUser, token);
   return { accessToken };
 }
 
+async function ensureStillActive(account, token) {
+  const current = await Auth.findById(account._id).lean();
+  if (!current?.isActive || current.role !== account.role || (current.sessionVersion || 0) !== (account.sessionVersion || 0)) {
+    await sessions.closeToken(token);
+    await getRedisClient().del(`refresh:${token}`, `refreshVersion:${token}`);
+    throw Object.assign(new Error("حساب غیرفعال شده یا نشست پایان یافته است."), { statusCode: 401 });
+  }
+}
 async function logout(refreshToken) {
   const redis = getRedisClient();
 
@@ -160,16 +167,18 @@ async function logout(refreshToken) {
   return { success: true };
 }
 
-async function devLogin(phone, code, context = {}) {
-  if (isLocalTestPhone(phone)) {
-    if (code !== getLocalOtp(phone)) throw new Error("Invalid OTP code.");
-  } else {
-    if (phone !== "09128498876") throw new Error("Phone number is wrong.");
-    if (code !== "112233") throw new Error("Invalid OTP code.");
-  }
-  const authUser = await Auth.findOne({ phone, isActive: true });
-  if (!authUser) throw new Error("Permission denied.");
-  return issueTokens(authUser, context);
+async function registerAccount(token, kind, payload, context = {}) {
+  if (!["customer", "supplier"].includes(kind) || !/^[a-f0-9]{64}$/.test(token || "")) throw Object.assign(new Error("ابتدا کد یک‌بارمصرف را تأیید کنید."), { statusCode: 401 });
+  const redis = getRedisClient();
+  const phone = await redis.get(`registration:${token}`);
+  if (!phone) throw Object.assign(new Error("تأیید شماره منقضی شده است؛ دوباره وارد شوید."), { statusCode: 401 });
+  const identity = require("../../accounts/service/profile-completion").pickProfileFields(payload, kind);
+  const data = kind === "customer"
+    ? { ...identity, fullName: payload.fullName, phone, addresses: payload.addresses || [], carModels: payload.carModels || [] }
+    : { ...identity, name: payload.name, contacts: { mobile: phone }, address: payload.address, coverageRules: payload.coverageRules || [] };
+  if (kind === "customer") await require("../../customer/service/customer.service").createCustomer(data);
+  else await require("../../suppliers/service/supplier.service").createSupplier(data);
+  await redis.del(`registration:${token}`);
+  return issueTokens(await Auth.findOne({ phone }), context);
 }
-
-module.exports = { requestOtp, verifyOtp, refreshToken, logout, devLogin };
+module.exports = { requestOtp, verifyOtp, refreshToken, logout, registerAccount };

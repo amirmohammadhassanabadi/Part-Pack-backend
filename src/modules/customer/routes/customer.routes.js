@@ -20,6 +20,7 @@ const router = express.Router();
 // Customer registration
 router.post(
   "/",
+  require("../../auth/middleware/registration.middleware"),
   validateBody(validateCustomer),
   customerController.createCustomer,
 );
