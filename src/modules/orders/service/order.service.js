@@ -13,7 +13,6 @@ const {
 const invitationService = require("../../invitation/service/invitation.service");
 const {
   recordEvent,
-  deleteOrderEvents,
 } = require("../../audit/service/audit.service");
 const { withTransaction } = require("../../../core/database/transaction");
 
@@ -279,7 +278,6 @@ async function createOrder(customerId, items) {
     } catch (error) {
       if (!session) {
         await invitationService.deleteInvitationsForOrder(order._id);
-        await deleteOrderEvents(order._id);
         await Order.deleteOne({ _id: order._id });
       }
       throw error;

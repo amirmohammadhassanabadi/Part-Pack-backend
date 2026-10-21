@@ -4,8 +4,8 @@
  *   get:
  *     tags:
  *       - Audit
- *     summary: Get the audit trail of an order
- *     description: Returns the chronological business events recorded for an order.
+ *     summary: Audit event API is retired
+ *     description: Business audit events are emitted to backend application logs and are not stored for API retrieval.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -16,8 +16,8 @@
  *         schema:
  *           type: string
  *     responses:
- *       200:
- *         description: Order audit events retrieved successfully.
+ *       410:
+ *         description: Audit events are available only in backend application logs.
  *       400:
  *         description: Invalid order ID.
  *       401:

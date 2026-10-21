@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
-const AuditEvent = require("../model/auditEvent.model");
-const Order = require("../../orders/model/order.model");
+
+function emit(event) {
+  console.log(JSON.stringify(event));
+}
 
 async function recordEvent({
   orderId,
@@ -17,56 +19,38 @@ async function recordEvent({
     return null;
   }
 
-  try {
-    const payload = {
-      orderId,
-      type,
-      actorType,
-      actorId: mongoose.isValidObjectId(actorId) ? actorId : null,
-      supplierId: mongoose.isValidObjectId(supplierId) ? supplierId : null,
-      invitationId: mongoose.isValidObjectId(invitationId)
-        ? invitationId
-        : null,
-      invoiceId: mongoose.isValidObjectId(invoiceId) ? invoiceId : null,
-      metadata,
-    };
-    const created = session
-      ? await AuditEvent.create([payload], { session })
-      : [await AuditEvent.create(payload)];
-    return created[0];
-  } catch (error) {
-    if (session) throw error;
-    // Non-transactional audit logging must not break the business operation.
-    console.error("Failed to record audit event:", error.message);
-    return null;
-  }
-}
+  const event = {
+    timestamp: new Date().toISOString(),
+    level: "info",
+    event: "business_audit",
+    orderId: String(orderId),
+    type,
+    actorType,
+    actorId: mongoose.isValidObjectId(actorId) ? String(actorId) : null,
+    supplierId: mongoose.isValidObjectId(supplierId) ? String(supplierId) : null,
+    invitationId: mongoose.isValidObjectId(invitationId) ? String(invitationId) : null,
+    invoiceId: mongoose.isValidObjectId(invoiceId) ? String(invoiceId) : null,
+    metadata,
+  };
 
-async function getOrderEvents(orderId) {
-  if (!mongoose.isValidObjectId(orderId)) {
-    const error = new Error("Invalid order ID");
-    error.statusCode = 400;
-    throw error;
+  // Emit transaction-bound events only after the transaction commits.
+  if (session) {
+    session._partPaxAuditEvents ||= [];
+    session._partPaxAuditEvents.push(event);
+    return event;
   }
 
-  const order = await Order.exists({ _id: orderId });
-  if (!order) {
-    const error = new Error("Order not found");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return AuditEvent.find({ orderId })
-    .populate("supplierId", "name")
-    .populate("invitationId", "lifecycle.status token.expiresAt")
-    .populate("invoiceId", "status total")
-    .sort({ createdAt: 1 })
-    .lean();
+  emit(event);
+  return event;
 }
 
-async function deleteOrderEvents(orderId) {
-  if (!mongoose.isValidObjectId(orderId)) return null;
-  return AuditEvent.deleteMany({ orderId });
+function flushSessionEvents(session) {
+  for (const event of session?._partPaxAuditEvents || []) emit(event);
+  if (session) delete session._partPaxAuditEvents;
 }
 
-module.exports = { recordEvent, getOrderEvents, deleteOrderEvents };
+function discardSessionEvents(session) {
+  if (session) delete session._partPaxAuditEvents;
+}
+
+module.exports = { recordEvent, flushSessionEvents, discardSessionEvents };

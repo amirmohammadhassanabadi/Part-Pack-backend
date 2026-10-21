@@ -6,6 +6,7 @@ const swaggerSpec = require("./docs/openapi");
 
 // Middlewares
 const errorHandler = require("./core/middlewares/errorHandler");
+const auditRequestLogger = require("./core/middlewares/auditRequestLogger");
 
 // Modules Importing
 const authRouter = require("./modules/auth");
@@ -24,9 +25,10 @@ const paymentRouter = require("./modules/payment");
 // App
 const app = express();
 
-app.use(morgan("dev"));
+app.use(morgan(":method :status :response-time ms"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(auditRequestLogger);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

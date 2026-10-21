@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Payment = require("../model/payment.model");
 const Order = require("../../orders/model/order.model");
 const { createPaymentSession } = require("../provider/paymentProvider");
+const { recordEvent } = require("../../audit/service/audit.service");
 
 function assertObjectId(value, fieldName) {
   if (!mongoose.isValidObjectId(value)) {
@@ -54,7 +55,11 @@ async function createSessionForOrder(orderId, customerId) {
     return { order, payment, reuse: false };
   }, { required: Boolean(isBundle) });
   const { order, payment } = prepared;
-  if (prepared.reuse) return payment;
+  if (prepared.reuse) {
+    await recordEvent({ orderId: order._id, type: "payment_session_reused", actorType: "customer", actorId: customerId, metadata: { paymentId: payment._id, status: payment.status } });
+    return payment;
+  }
+  await recordEvent({ orderId: order._id, type: "payment_session_created", actorType: "customer", actorId: customerId, metadata: { paymentId: payment._id, amount: payment.amount, currency: payment.currency } });
   try {
     const session = await createPaymentSession({
       paymentId: payment._id,
@@ -70,12 +75,14 @@ async function createSessionForOrder(orderId, customerId) {
     payment.redirectUrl = session.redirectUrl;
     payment.status = "pending";
     await payment.save();
+    await recordEvent({ orderId: order._id, type: "payment_session_ready", actorType: "customer", actorId: customerId, metadata: { paymentId: payment._id, provider: payment.provider, status: payment.status } });
     return payment;
   } catch (error) {
     payment.status = error.code === "PAYMENT_PROVIDER_NOT_CONFIGURED" ? "not_configured" : "failed";
     payment.failureCode = error.code || "PAYMENT_SESSION_FAILED";
     payment.failureMessage = error.message;
     await payment.save();
+    await recordEvent({ orderId: order._id, type: "payment_session_failed", actorType: "customer", actorId: customerId, metadata: { paymentId: payment._id, failureCode: payment.failureCode, status: payment.status } });
     throw error;
   }
 }

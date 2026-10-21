@@ -172,12 +172,14 @@ async function createInvitation({
     session,
   });
 
-  await sendSupplierInvitation({
-    orderId,
-    supplierId,
-    token: rawToken,
-    expiresAt,
-  });
+  await recordEvent({ orderId, type: "invitation_delivery_queued", supplierId, invitationId: invitation._id, metadata: { channel: "configured_provider" }, session });
+  try {
+    const delivery = await sendSupplierInvitation({ orderId, supplierId, token: rawToken, expiresAt });
+    await recordEvent({ orderId, type: "invitation_delivery_result", supplierId, invitationId: invitation._id, metadata: { status: delivery?.status || "queued" }, session });
+  } catch (error) {
+    await recordEvent({ orderId, type: "invitation_delivery_failed", supplierId, invitationId: invitation._id, metadata: { failureCode: error.code || "DELIVERY_FAILED" }, session });
+    throw error;
+  }
 
   return {
     invitation,
@@ -326,6 +328,7 @@ async function getInvitation(rawToken, { markOpened = false, supplierId = null, 
   ) {
     invitation.lifecycle.status = "expired";
     await invitation.save();
+    await recordEvent({ orderId: invitation.orderId, type: "invitation_expired", supplierId: invitation.supplierId, invitationId: invitation._id });
   }
 
   if (invitation.lifecycle.status === "expired" && !allowExpired) {
@@ -703,18 +706,18 @@ async function selectOrderOffers(orderId, selections, operatorId) {
 
 async function expireDueInvitations() {
   const now = new Date();
-
-  const result = await Invitation.updateMany(
-    {
+  const due = await Invitation.find({
       "token.expiresAt": { $lte: now },
       "lifecycle.status": { $in: ["sent", "opened", "responded"] },
-    },
-    {
-      $set: {
-        "lifecycle.status": "expired",
-      },
-    },
-  );
+    }).select("_id orderId supplierId").lean();
+  let expiredCount = 0;
+  for (const invitation of due) {
+    const result = await Invitation.updateOne({ _id: invitation._id, "lifecycle.status": { $in: ["sent", "opened", "responded"] } }, { $set: { "lifecycle.status": "expired" } });
+    if (result.modifiedCount) {
+      expiredCount++;
+      await recordEvent({ orderId: invitation.orderId, type: "invitation_expired", supplierId: invitation.supplierId, invitationId: invitation._id });
+    }
+  }
 
   const waitingOrders = await Order.find({ status: { $in: ["supplier_invitation", "collecting_offers"] } }).select("_id").lean();
   const orderIds = waitingOrders.map((entry) => entry._id);
@@ -727,7 +730,7 @@ async function expireDueInvitations() {
     { $set: { status: "operator_review" } },
   );
   const reviewCount = reviewed.modifiedCount || 0;
-  return { expiredCount: result.modifiedCount || 0, reviewCount };
+  return { expiredCount, reviewCount };
 }
 
 module.exports = {

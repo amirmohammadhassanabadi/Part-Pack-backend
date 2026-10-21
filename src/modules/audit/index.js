@@ -1,6 +1,5 @@
 const express = require("express");
 
-const auditService = require("./service/audit.service");
 const {
   authenticate,
   authorize,
@@ -8,18 +7,11 @@ const {
 
 const router = express.Router();
 
-router.get(
-  "/orders/:orderId/events",
-  authenticate,
-  authorize("operator", "admin"),
-  async (req, res, next) => {
-    try {
-      const events = await auditService.getOrderEvents(req.params.orderId);
-      return res.status(200).json({ success: true, data: events });
-    } catch (error) {
-      return next(error);
-    }
-  },
+router.get("/orders/:orderId/events", authenticate, authorize("operator", "admin"), (req, res) =>
+  res.status(410).json({
+    success: false,
+    message: "Audit events are emitted to backend application logs and are not stored for API retrieval.",
+  }),
 );
 
 module.exports = router;
