@@ -23,7 +23,7 @@ router.post(
 );
 router.post("/register", otpRateLimiter, async (req, res, next) => {
   try {
-    const result = await require("../service/auth.service").registerAccount(req.get("x-registration-token"), req.body.role, req.body, { userAgent: req.get("user-agent") });
+    const result = await require("../service/auth.service").registerAccount(req.get("x-registration-token"), req.body.role, req.body, { userAgent: req.get("user-agent"), deviceId: req.get("x-device-id"), ipAddress: req.get("x-client-ip") });
     const actor = result?.user || {};
     await require("../../audit/service/audit.service").writeAuditLog({ timestamp: new Date().toISOString(), level: "info", event: "authentication_audit", type: "account_registered", correlationId: req.correlationId, actorId: actor.userId || null, actorRole: actor.role || req.body.role || null });
     res.set("Cache-Control", "no-store").status(201).json(result);

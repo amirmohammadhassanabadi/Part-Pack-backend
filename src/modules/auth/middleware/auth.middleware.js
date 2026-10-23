@@ -18,7 +18,11 @@ async function authenticate(req, res, next) {
 
     // Pre-tracking tokens must refresh once so each browser gets a revocable session ID.
     if (decoded.refModel && !decoded.sid) return res.status(401).json({ success: false, message: "نشست باید تمدید شود." });
-    if (decoded.sid) await require("../service/session.service").assertSession(decoded.sid, decoded);
+    if (decoded.sid) {
+      const sessions = require("../service/session.service");
+      await sessions.assertSession(decoded.sid, decoded);
+      await sessions.touchSession(decoded.sid, { ipAddress: req.get("x-client-ip") });
+    }
     {
       const account = await Auth.findOne({ refId: decoded.userId, role: decoded.role }).select("isActive sessionVersion").lean();
       if (!account || !account.isActive || (account.sessionVersion || 0) !== (decoded.sessionVersion || 0)) {

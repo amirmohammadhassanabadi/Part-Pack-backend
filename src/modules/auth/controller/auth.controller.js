@@ -22,7 +22,7 @@ async function requestOtp(req, res, next) {
 async function verifyOtp(req, res, next) {
   try {
     const { phone, code } = req.body;
-    const result = await authService.verifyOtp(phone, code, { userAgent: req.get("user-agent") });
+    const result = await authService.verifyOtp(phone, code, { userAgent: req.get("user-agent"), deviceId: req.get("x-device-id"), ipAddress: req.get("x-client-ip") });
     await writeAuditLog({ timestamp: new Date().toISOString(), level: "info", event: "authentication_audit", type: result.registered ? "authentication_succeeded" : "otp_verified_registration_required", correlationId: req.correlationId, phoneLast4: String(phone || "").replace(/\D/g, "").slice(-4), ...(result.registered ? tokenActor(result.accessToken) : {}) });
 
     if (!result.registered) {
@@ -49,7 +49,7 @@ async function refreshToken(req, res, next) {
         .json({ success: false, message: "No refresh token provided." });
     }
 
-    const result = await authService.refreshToken(token, { userAgent: req.get("user-agent") });
+    const result = await authService.refreshToken(token, { userAgent: req.get("user-agent"), deviceId: req.get("x-device-id"), ipAddress: req.get("x-client-ip") });
     await writeAuditLog({ timestamp: new Date().toISOString(), level: "info", event: "authentication_audit", type: "session_refreshed", correlationId: req.correlationId, ...tokenActor(result.accessToken) });
 
     res.status(200).json({ success: true, accessToken: result.accessToken });
