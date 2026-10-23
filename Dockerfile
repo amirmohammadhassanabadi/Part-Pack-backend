@@ -19,6 +19,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+RUN mkdir -p /app/.audit-logs && chown node:node /app/.audit-logs
+
 # Run as the unprivileged Node user
 USER node
 

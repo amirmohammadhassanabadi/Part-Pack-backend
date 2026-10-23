@@ -161,10 +161,12 @@ async function logout(refreshToken) {
     throw new Error("Session not found or already logged out.");
   }
 
+  const authUser = await Auth.findById(authId).select("refId role").lean();
+
   await sessions.closeToken(refreshToken);
   await redis.del(`refresh:${refreshToken}`, `refreshVersion:${refreshToken}`);
 
-  return { success: true };
+  return { success: true, actorId: authUser?.refId || null, actorRole: authUser?.role || null };
 }
 
 async function registerAccount(token, kind, payload, context = {}) {

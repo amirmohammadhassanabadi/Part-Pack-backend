@@ -1,4 +1,5 @@
 const errorHandler = (err, req, res, next) => {
+  req.auditErrorCode = String(err.code || err.name || "REQUEST_FAILED").replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 80);
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
 

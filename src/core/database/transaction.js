@@ -12,7 +12,7 @@ async function withTransaction(work, { required = false } = {}) {
       session._partPaxAuditEvents = [];
       result = await work(session);
     });
-    require("../../modules/audit/service/audit.service").flushSessionEvents(session);
+    await require("../../modules/audit/service/audit.service").flushSessionEvents(session);
     return result;
   } catch (error) {
     require("../../modules/audit/service/audit.service").discardSessionEvents(session);
